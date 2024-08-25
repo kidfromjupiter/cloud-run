@@ -50,9 +50,8 @@ async def launch_zoombot(request:MeetingRequest):
         zoombotTestingStartUrl,
         headers={
             'Authorization':f'Bearer {access_token}',
-            "Content-Type":'application/json'
         },
-        data=payload
+        json=payload
     )
     return start_job.json()
      
