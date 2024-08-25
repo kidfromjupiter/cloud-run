@@ -7,6 +7,7 @@ on:
       - testing
     paths:
       - 'backend/**'
+      - '.github/workflows/build-and-push-backend.yml'
 
 jobs:
   build-and-push:
