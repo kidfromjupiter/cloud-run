@@ -1,4 +1,3 @@
-
 name: Build and Push Docker Image
 
 on:
@@ -34,7 +33,7 @@ jobs:
           context: ./bots/zoombot
           file: ./bots/zoombot/Dockerfile.job
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:zoombot-main
+          tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:zoombot
 
       - name: Build and push zoombot image (testing branch)
         if: github.ref_name == 'testing'
@@ -44,3 +43,21 @@ jobs:
           file: ./bots/zoombot/Dockerfile.job
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:zoombot-testing
+
+      - name: Build and push backend image (testing branch)
+        if: github.ref_name == 'testing'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./bots/backend
+          file: ./bots/backend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:backend-testing
+
+      - name: Build and push backend image (main branch)
+        if: github.ref_name == 'main'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./bots/backend
+          file: ./bots/backend/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:backend
