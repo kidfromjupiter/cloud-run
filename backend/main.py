@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 import uvicorn
 from os import environ
-app = FastAPI()
 from pydantic import BaseModel
 import requests
 
+app = FastAPI()
 metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 zoombotTestingStartUrl = "https://run.googleapis.com/v2/projects/woven-arcadia-432212-a6/locations/us-central1/jobs/zoombot-testing:run"
 
@@ -54,8 +54,10 @@ async def launch_zoombot(request:MeetingRequest):
         },
         data=payload
     )
-    return start_job.json()
+    return {
+        "status":start_job.status_code,
+        "access_token":access_token
+    }
      
-
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=int(environ.get('PORT') or 8000))
