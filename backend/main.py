@@ -54,10 +54,7 @@ async def launch_zoombot(request:MeetingRequest):
         },
         data=payload
     )
-    return {
-        "status":start_job.status_code,
-        "access_token":access_token
-    }
+    return start_job.json()
      
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=int(environ.get('PORT') or 8000))
