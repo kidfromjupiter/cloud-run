@@ -32,7 +32,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./bots/zoombot
-          file: .Dockerfile.job
+          file: Dockerfile.job
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:zoombot-main
 
@@ -41,6 +41,6 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./bots/zoombot
-          file: .Dockerfile.job
+          file: Dockerfile.job
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:zoombot-testing
