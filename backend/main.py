@@ -30,7 +30,7 @@ async def launch_zoombot(request:MeetingRequest):
                     "env":[
                         {"name":"MEETING_URL","value":request.meetingUrl},
                         {"name":"BOTNAME","value":request.botName},
-                        {"name":"TIMEOUT","value":request.timeout},
+                        {"name":"TIMEOUT","value":str(request.timeout)},
                         {"name":"BOT_ID","value":request.botId},
                         {"name":"WS_LINK","value":request.wsLink},
                         {"name":"FROM_ID","value":request.fromId},
