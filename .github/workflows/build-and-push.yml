@@ -40,7 +40,7 @@ jobs:
         if: github.ref_name == 'testing'
         uses: docker/build-push-action@v5
         with:
-          context: ./bot/zoombot
-          file: ./docker/testing/Dockerfile
+          context: ./bots/zoombot
+          file: .Dockerfile.job
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/cloud-run:zoombot-testing
