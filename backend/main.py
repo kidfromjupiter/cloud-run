@@ -142,6 +142,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
         },
         json=payload
     )
+    
     return start_job.json()
 
 

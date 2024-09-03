@@ -177,3 +177,4 @@ pyrightconfig.json
 
 **/venv/
 **/backend-env/
+.idea
