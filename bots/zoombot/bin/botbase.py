@@ -24,7 +24,7 @@ class BotBase:
         self.timer = None
         self.bot_name = bot_name
         self.timer_running = False
-        self.timeout = timeout
+        self.timeout = int(timeout)
         self.last_status = "Bot started"
         # Create Chrome instance
 

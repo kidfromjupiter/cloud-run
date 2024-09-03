@@ -6,7 +6,7 @@ if __name__ == '__main__':
     try:
         meeting_url = environ.get("MEETING_URL")
         bot_name = environ.get("BOTNAME")
-        timeout = environ.get("TIMEOUT")
+        timeout = int(environ.get("TIMEOUT"))
         bot_id = environ.get("BOT_ID")
         from_id = environ.get("FROM_ID")
         ws_link = environ.get("WS_LINK")
