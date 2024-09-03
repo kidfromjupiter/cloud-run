@@ -13,12 +13,12 @@ from supabase import AClient, acreate_client
 load_dotenv(".env")
 
 supabase_client: AClient = None
-SUPABASE_SERVICE_KEY = environ.get("SUPABSE_SERVICE_KEY")
+SUPABASE_SERVICE_KEY = environ.get("SUPABASE_SERVICE_KEY")
 SUPABASE_URL = environ.get("SUPABASE_URL")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    supabase_client = await acreate_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    supabase_client = await acreate_client(supabase_url=SUPABASE_URL, supabase_key=SUPABASE_SERVICE_KEY)
     yield
     
 
