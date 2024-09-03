@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from os import environ
 
 import aiohttp
@@ -6,21 +7,25 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
 from pydantic import BaseModel
-from datetime import datetime, timezone
-from utils.aiohttp_singleton import HttpClient
 from supabase import AClient, acreate_client
+
+from utils.aiohttp_singleton import HttpClient
 
 load_dotenv(".env")
 
+http_client = HttpClient()
 supabase_client: AClient = None
 SUPABASE_SERVICE_KEY = environ.get("SUPABASE_SERVICE_KEY")
 SUPABASE_URL = environ.get("SUPABASE_URL")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    http_client.start()
+    global supabase_client
     supabase_client = await acreate_client(supabase_url=SUPABASE_URL, supabase_key=SUPABASE_SERVICE_KEY)
     yield
-    
+
 
 app = FastAPI(lifespan=lifespan)
 metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
@@ -46,10 +51,7 @@ class BatchMeetingRequest(BaseModel):
     numberOfBots: int
 
 
-http_client = HttpClient()
-
-
-def create_payload(request: MeetingRequest) -> dict:
+def create_payload(request: MeetingRequest | BatchMeetingRequest) -> dict:
     return {
         'overrides': {
             "containerOverrides": [
@@ -66,11 +68,6 @@ def create_payload(request: MeetingRequest) -> dict:
             ]
         }
     }
-
-
-@app.on_event("startup")
-async def startup():
-    http_client.start()
 
 
 @app.get("/", tags=["root"])
@@ -95,18 +92,18 @@ async def started(user_id: str, bot_id: str, http_client: aiohttp.ClientSession 
     pass
 
 
-
-@app.post("/test/zoom")
-async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
+@app.post("/test/batch/zoom")
+async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     await supabase_client.auth.sign_in_anonymously()
-    await supabase_client.table('bot').insert({
+    user = await supabase_client.auth.get_user()
+    i = await supabase_client.schema("public").table('bot').insert({
 
-        "start_time":datetime.now(timezone.utc),
+        "start_time": datetime.now(timezone.utc).isoformat(),
         "meeting_url": request.meetingUrl,
         "timeout": request.timeout,
-        "user_id": supabase_client.auth.get_user()['id']
-    })
-    
+        "user_id": user.dict()['user']['id']
+    }).execute()
+
     payload = create_payload(request)
     r = await http_client.post(
         metadataUrl,
@@ -126,8 +123,8 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
     return {"success": "true"}
 
 
-@app.post("/test/batch/zoom")
-async def launch_batch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
+@app.post("/test/zoom")
+async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     payload = create_payload(request)
     r = await http_client.post(
         metadataUrl,
