@@ -111,7 +111,8 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
             "Metadata-Flavor": "Google"
         }
     )
-    access_token = r.json()['access_token']
+    json = await r.json()
+    access_token = json['access_token']
     for i in range(request.numberOfBots):
         await http_client.post(
             zoombotTestingStartUrl,
@@ -132,7 +133,8 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
             "Metadata-Flavor": "Google"
         }
     )
-    access_token = await r.json()['access_token']
+    json = await r.json()
+    access_token = json['access_token']
     start_job = await http_client.post(
         zoombotTestingStartUrl,
         headers={
