@@ -1,20 +1,43 @@
 import logging as lg
 import re
-from os import environ
+from threading import Timer
 from time import sleep
-from .botbase import BotBase
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from .botbase import BotBase
+
 lg.basicConfig(level=lg.DEBUG, filename="py_log.log", filemode="w")
 WAIT_ADMIT_TIME = 120
 POLL_RATE = 0.1
 
+
+def set_interval(func, sec):
+    def func_wrapper():
+        set_interval(func, sec)
+        func()
+
+    t = Timer(sec, func_wrapper)
+    t.daemon = True
+    t.start()
+    return t
+
+
 class ZoomBot(BotBase):
     def __init__(self, ws_link, meeting_id, botName, timeout, bot_id, to_id):
         super().__init__(ws_link, meeting_id, botName, timeout, bot_id, to_id)
+
+    def _check_ended(self):
+        meeting_ended: list = self.driver.find_elements(By.XPATH, '//div[@aria-label="Meeting is end now"]')
+        removed: list = self.driver.find_elements(By.XPATH, '//div[@aria-label="You have been removed"]')
+        if meeting_ended or removed:
+            self.exit_func()
+            raise Exception("Meeting ended")
+
+    def start_termination_checks(self):
+        set_interval(self._check_ended, 10)
 
     def join_meeting(self):
         try:
@@ -83,7 +106,9 @@ class ZoomBot(BotBase):
 
             # Click the stop video button
             stop_video_button.click()
-            sleep(600)
+
+            # start timeout
+            self.start_timer(self.timeout, self.exit_func)
 
         except Exception as e:
             print(e)
@@ -96,6 +121,3 @@ class ZoomBot(BotBase):
                 file.write(page)
             self.driver.quit()
             self.driver = None
-
-
-    

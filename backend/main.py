@@ -7,18 +7,18 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
 from pydantic import BaseModel
 from datetime import datetime, timezone
-from .aiohttp_singleton import HttpClient
+from utils.aiohttp_singleton import HttpClient
 from supabase import AClient, acreate_client
 
 load_dotenv(".env")
 
 supabase_client: AClient = None
-SUPABSE_SERVICE_KEY = environ.get("SUPABSE_SERVICE_KEY")
+SUPABASE_SERVICE_KEY = environ.get("SUPABSE_SERVICE_KEY")
 SUPABASE_URL = environ.get("SUPABASE_URL")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    supabase_client = await acreate_client(SUPABASE_URL, SUPABSE_SERVICE_KEY)
+    supabase_client = await acreate_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     yield
     
 
