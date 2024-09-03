@@ -3,7 +3,7 @@ from os import environ
 from bin.bot import ZoomBot
 
 if __name__ == '__main__':
-    try:
+    # try:
         meeting_url = environ.get("MEETING_URL")
         bot_name = environ.get("BOTNAME")
         timeout = int(environ.get("TIMEOUT"))
@@ -19,6 +19,7 @@ if __name__ == '__main__':
             from_id,
         )
         bot.join_meeting()
-    except:
-        # TODO: send bot finished to fastapi webhook
-        pass
+    # except Exception as e:
+    #     print(e)
+    #     # TODO: send bot finished to fastapi webhook
+    #     pass

@@ -24,7 +24,7 @@ class BotBase:
         self.timer = None
         self.bot_name = bot_name
         self.timer_running = False
-        self.timeout = int(timeout)
+        self.timeout = timeout
         self.last_status = "Bot started"
         # Create Chrome instance
 
@@ -49,7 +49,7 @@ class BotBase:
             self.cancel_timer()
 
         print("Starting timer...")
-        self.timer = threading.Timer(interval, func)
+        self.timer = threading.Timer(int(interval), func)
         self.timer.start()
         self.timer_running = True
 
