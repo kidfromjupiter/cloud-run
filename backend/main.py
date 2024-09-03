@@ -132,7 +132,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
             "Metadata-Flavor": "Google"
         }
     )
-    access_token = r.json()['access_token']
+    access_token = await r.json()['access_token']
     start_job = await http_client.post(
         zoombotTestingStartUrl,
         headers={
