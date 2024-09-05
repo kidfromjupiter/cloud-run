@@ -29,8 +29,7 @@ if __name__ == '__main__':
         BASE_URL = 'https://backend-testing-514385437890.us-central1.run.app'
         USER_ID = environ.get("FROM_ID")
         BOT_ID = environ.get("BOT_ID")
-        print(BOT_ID, BOT_ID, environ.get("GROUP_ID"))
-        if environ.get("GROUP_ID") == "null":
+        if not environ.get("GROUP_ID"):
             requests.post(
                 f"{BASE_URL}/done/{USER_ID}/{BOT_ID}",
             )
@@ -39,5 +38,6 @@ if __name__ == '__main__':
             requests.post(
                 f"{BASE_URL}/done/group/{USER_ID}/{BOT_ID}",
             )
+            print("In a group. Made a request after it quit")
 
         sys.exit(0)
