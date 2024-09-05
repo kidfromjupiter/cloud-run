@@ -1,3 +1,4 @@
+import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from os import environ
@@ -54,7 +55,7 @@ class BatchMeetingRequest(BaseModel):
     userId: UUID4
 
 
-def create_payload(request: MeetingRequest | BatchMeetingRequest, group_id: UUID4 | None = None) -> dict:
+def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, group_id: UUID4 | None = None) -> dict:
     return {
         'overrides': {
             "containerOverrides": [
@@ -63,7 +64,7 @@ def create_payload(request: MeetingRequest | BatchMeetingRequest, group_id: UUID
                         {"name": "MEETING_URL", "value": request.meetingUrl},
                         {"name": "BOTNAME", "value": request.botName},
                         {"name": "TIMEOUT", "value": str(request.timeout)},
-                        {"name": "BOT_ID", "value": request.botId},
+                        {"name": "BOT_ID", "value": bot_id},
                         {"name": "WS_LINK", "value": request.wsLink},
                         {"name": "FROM_ID", "value": request.fromId},
                         {"name": "GROUP_ID", "value": group_id},
@@ -136,7 +137,8 @@ async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSes
 
 @app.post("/test/batch/zoom")
 async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
-    payload = create_payload(request)
+    bot_id = str(uuid.uuid4())
+    payload = create_payload(request, bot_id)
 
     # get credits and see if this bot group is runnable
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
@@ -179,7 +181,8 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
 
 @app.post("/test/zoom")
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
-    payload = create_payload(request)
+    bot_id = str(uuid.uuid4())
+    payload = create_payload(request, bot_id)
 
     # get cloud run access token
     r = await http_client.post(
@@ -195,7 +198,8 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
     await supabase_client.schema("public").table('bots').insert({
         "meeting_url": request.meetingUrl,
         "timeout": request.timeout,
-        "user_id": request.userId
+        "user_id": request.userId,
+        "id": bot_id
     }).execute()
 
     # send reqeust to google cloud run to start the job
