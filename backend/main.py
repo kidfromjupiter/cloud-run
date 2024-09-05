@@ -41,7 +41,7 @@ class MeetingRequest(BaseModel):
     botId: str
     fromId: str
     wsLink: str
-    userId: UUID4
+    userId: str
 
 
 class BatchMeetingRequest(BaseModel):
@@ -52,7 +52,7 @@ class BatchMeetingRequest(BaseModel):
     fromId: str
     wsLink: str
     numberOfBots: int
-    userId: UUID4
+    userId: str
 
 
 def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, group_id: UUID4 | None = None) -> dict:
@@ -182,6 +182,7 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
 @app.post("/test/zoom")
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
+    print(type(bot_id))
     payload = create_payload(request, bot_id)
 
     # get cloud run access token
