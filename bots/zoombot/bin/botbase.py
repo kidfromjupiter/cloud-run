@@ -77,7 +77,7 @@ class BotBase:
 
     def exit_func(self):
         self.driver.quit()
-        raise Exception("Timeout reached. Quitting...")
+        print("Timeout reached. Quitting...")
 
     def send_status(self):
         pass
