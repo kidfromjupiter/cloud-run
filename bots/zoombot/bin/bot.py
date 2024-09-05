@@ -26,8 +26,8 @@ def set_interval(func, sec):
 
 
 class ZoomBot(BotBase):
-    def __init__(self, ws_link, meeting_id, botName, timeout, bot_id, to_id):
-        super().__init__(ws_link, meeting_id, botName, timeout, bot_id, to_id)
+    def __init__(self, ws_link, meeting_id, botName, timeout, bot_id, to_id, group_id):
+        super().__init__(ws_link, meeting_id, botName, timeout, bot_id, to_id, group_id)
 
     def _check_ended(self):
         meeting_ended: list = self.driver.find_elements(By.XPATH, '//div[@aria-label="Meeting is end now"]')
@@ -111,13 +111,4 @@ class ZoomBot(BotBase):
             self.start_timer(self.timeout, self.exit_func)
 
         except Exception as e:
-            print(e)
-            elements = self.driver.find_elements(By.CLASS_NAME, 'SvgShare')
-            if elements:
-                self.driver.save_screenshot(f"error.png")
-            self.driver.save_screenshot(f"exit.png")
-            page = self.driver.page_source
-            with open("page.html", "w") as file:
-                file.write(page)
-            self.driver.quit()
-            self.driver = None
+            raise Exception("Internal bot error")

@@ -12,7 +12,7 @@ from .ws_manager import WebsocketConnection
 
 
 class BotBase:
-    def __init__(self, ws_link, meeting_id, bot_name, timeout, bot_id, to_id):
+    def __init__(self, ws_link, meeting_id, bot_name, timeout, bot_id, to_id, group_id):
         self.timer = None
         self.timer_running = False
         self.ws_link = ws_link
@@ -26,6 +26,7 @@ class BotBase:
         self.timer_running = False
         self.timeout = timeout
         self.last_status = "Bot started"
+        self.group_id = group_id
         # Create Chrome instance
 
         opt = Options()

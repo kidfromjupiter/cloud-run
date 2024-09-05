@@ -6,7 +6,7 @@ import aiohttp
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, UUID4
 from supabase import AClient, acreate_client
 
 from utils.aiohttp_singleton import HttpClient
@@ -16,6 +16,7 @@ load_dotenv(".env")
 http_client = HttpClient()
 supabase_client: AClient = None
 SUPABASE_SERVICE_KEY = environ.get("SUPABASE_SERVICE_KEY")
+SUPABASE_ANON_KEY = environ.get("SUPABASE_ANON_KEY")
 SUPABASE_URL = environ.get("SUPABASE_URL")
 
 
@@ -39,6 +40,7 @@ class MeetingRequest(BaseModel):
     botId: str
     fromId: str
     wsLink: str
+    userId: UUID4
 
 
 class BatchMeetingRequest(BaseModel):
@@ -49,9 +51,10 @@ class BatchMeetingRequest(BaseModel):
     fromId: str
     wsLink: str
     numberOfBots: int
+    userId: UUID4
 
 
-def create_payload(request: MeetingRequest | BatchMeetingRequest) -> dict:
+def create_payload(request: MeetingRequest | BatchMeetingRequest, group_id: UUID4 | None = None) -> dict:
     return {
         'overrides': {
             "containerOverrides": [
@@ -63,6 +66,7 @@ def create_payload(request: MeetingRequest | BatchMeetingRequest) -> dict:
                         {"name": "BOT_ID", "value": request.botId},
                         {"name": "WS_LINK", "value": request.wsLink},
                         {"name": "FROM_ID", "value": request.fromId},
+                        {"name": "GROUP_ID", "value": group_id},
                     ]
                 }
             ]
@@ -77,34 +81,72 @@ async def root():
 
 @app.post("/done/{user_id}/{bot_id}")
 async def done(user_id: str, bot_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
-    # TODO: Get bot status from db. get started time
-    # TODO: Get user credits. Reduce appropriate amount
-    # TODO: Set bot as completed
-    pass
+    (__, bot_data_list), _ = await supabase_client.table("bots").select("created_at, id").eq("id",
+                                                                                             f'{bot_id}').execute()
+    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
+                                                                                                       f'{user_id}').execute()
+    # calculating leftover credits
+    credit = profile_data_list[0]["credits"]
+    started_time = datetime.fromisoformat(bot_data_list[0]["created_at"])
+    time_now = datetime.now(timezone.utc)
+    delta = time_now - started_time
+    used_creds = delta.seconds // 60
+
+    credit = max(0, credit - used_creds)
+
+    updated_credit_data, _ = await supabase_client.table("profiles").update({"credits": credit}).eq("user_id",
+                                                                                                    f"{user_id}").execute()
+    updated_bot_data, _ = await (supabase_client.table("bots").update({"completed": True})
+                                 .eq("id", f"{bot_id}")
+                                 .eq("user_id", f"{user_id}")
+                                 .execute())
+    return {
+        'botData': updated_bot_data[1][0],
+        'profileData': updated_credit_data[1][0],
+    }
 
 
-@app.post("/started/{user_id}/{bot_id}")
-async def started(user_id: str, bot_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
-    r = await http_client.post(
-        f"{environ.get('SUPABASE_URL')}/rest/v1/bot?select"
-    )
-    # TODO: set bot as started in db. Set bot UUID. Set 
-    pass
+@app.post("/done/group/{user_id}/{group_id}")
+async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
+    (__, bot_group_data_list), _ = await supabase_client.table("botgroups").select("created_at, id, alive").eq("id",
+                                                                                                               f'{group_id}').execute()
+    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
+                                                                                                       f'{user_id}').execute()
+    # calculating leftover credits
+    credit = profile_data_list[0]["credits"]
+    started_time = datetime.fromisoformat(bot_group_data_list[0]["created_at"])
+    time_now = datetime.now(timezone.utc)
+    delta = time_now - started_time
+    used_creds = delta.seconds // 60
+
+    credit = max(0, credit - used_creds)
+
+    updated_alive_count = int(bot_group_data_list[0]["alive"]) - 1
+    updated_credit_data, _ = await supabase_client.table("profiles").update({"credits": credit}).eq("user_id",
+                                                                                                    f"{user_id}").execute()
+    updated_botgroup_data, _ = await supabase_client.table("botgroups").update(
+        {"alive": updated_alive_count}).eq("id",
+                                           f"{group_id}").execute()
+
+    return {
+        'botData': updated_botgroup_data[1][0],
+        'profileData': updated_credit_data[1][0],
+    }
 
 
 @app.post("/test/batch/zoom")
 async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
-    await supabase_client.auth.sign_in_anonymously()
-    user = await supabase_client.auth.get_user()
-    i = await supabase_client.schema("public").table('bot').insert({
-
-        "start_time": datetime.now(timezone.utc).isoformat(),
-        "meeting_url": request.meetingUrl,
-        "timeout": request.timeout,
-        "user_id": user.dict()['user']['id']
-    }).execute()
-
     payload = create_payload(request)
+
+    # get credits and see if this bot group is runnable
+    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
+                                                                                                       f'{request.userId}').execute()
+
+    total_credits_for_botgroup = request.timeout * request.numberOfBots // 60  # timeout is specified in seconds
+    if profile_data_list[0]["credits"] < total_credits_for_botgroup:
+        return {"status": "insufficient_credits"}
+
+    # get cloud run access token
     r = await http_client.post(
         metadataUrl,
         headers={
@@ -113,6 +155,17 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
     )
     json = await r.json()
     access_token = json['access_token']
+
+    # create entry in bot groups table
+    await supabase_client.schema("public").table('botgroups').insert({
+        "meeting_url": request.meetingUrl,
+        "timeout": request.timeout,
+        "number": request.numberOfBots,
+        "alive": request.numberOfBots,
+        "user_id": request.userId
+    }).execute()
+
+    # send requests to google cloud run to start jobs
     for i in range(request.numberOfBots):
         await http_client.post(
             zoombotTestingStartUrl,
@@ -127,6 +180,8 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
 @app.post("/test/zoom")
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     payload = create_payload(request)
+
+    # get cloud run access token
     r = await http_client.post(
         metadataUrl,
         headers={
@@ -135,6 +190,15 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
     )
     json = await r.json()
     access_token = json['access_token']
+
+    # create entry in bots table
+    await supabase_client.schema("public").table('bots').insert({
+        "meeting_url": request.meetingUrl,
+        "timeout": request.timeout,
+        "user_id": request.userId
+    }).execute()
+
+    # send reqeust to google cloud run to start the job
     start_job = await http_client.post(
         zoombotTestingStartUrl,
         headers={
