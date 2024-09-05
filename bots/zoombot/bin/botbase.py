@@ -1,6 +1,4 @@
 import json
-import sys
-from uuid import uuid4
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -79,7 +77,7 @@ class BotBase:
 
     def exit_func(self):
         self.driver.quit()
-        sys.exit(0)
+        raise Exception("Timeout reached. Quitting...")
 
     def send_status(self):
         pass
