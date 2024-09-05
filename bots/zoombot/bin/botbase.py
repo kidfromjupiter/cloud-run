@@ -74,8 +74,9 @@ class BotBase:
                 self.websocket.send_status(self.last_status, self.bot_name, self.meeting_id)
 
     def exit_func(self):
-        self.driver.quit()
+        # self.driver.quit()
         print("Timeout reached. Quitting...")
+        raise Exception("Timeout reached. Quitting...")
 
     def send_status(self):
         pass
