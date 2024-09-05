@@ -176,6 +176,7 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
             },
             json=payload
         )
+   
     return {"success": True}
 
 
@@ -211,8 +212,9 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
         },
         json=payload
     )
+    return_data = await start_job.json()
 
-    return {"success":True}
+    return return_data
 
 
 if __name__ == "__main__":
