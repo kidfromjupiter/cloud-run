@@ -1,9 +1,8 @@
 import json
+import threading
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-import threading
-
 from selenium.webdriver.chrome.webdriver import WebDriver
 
 from .ws_manager import WebsocketConnection
@@ -15,7 +14,7 @@ class BotBase:
         self.timer_running = False
         self.ws_link = ws_link
         self.from_id = bot_id
-        self.to_id= to_id
+        self.to_id = to_id
         self.websocket = WebsocketConnection(self.ws_link, self.from_id, self.to_id)
         self.participant_list = []
         self.meeting_id = meeting_id
@@ -72,8 +71,7 @@ class BotBase:
             if "kill" in msg.keys():
                 self.exit_func()
             if "getStatus" in msg.keys():
-                self.websocket.send_status(self.last_status,self.bot_name,self.meeting_id) 
-
+                self.websocket.send_status(self.last_status, self.bot_name, self.meeting_id)
 
     def exit_func(self):
         self.driver.quit()
