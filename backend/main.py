@@ -63,7 +63,7 @@ def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, g
                     "env": [
                         {"name": "MEETING_URL", "value": request.meetingUrl},
                         {"name": "BOTNAME", "value": request.botName},
-                        {"name": "TIMEOUT", "value": request.timeout},
+                        {"name": "TIMEOUT", "value": str(request.timeout)},
                         {"name": "BOT_ID", "value": bot_id},
                         {"name": "WS_LINK", "value": request.wsLink},
                         {"name": "FROM_ID", "value": request.fromId},
@@ -183,7 +183,6 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
 @app.post("/test/zoom")
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
-    print(type(bot_id))
     payload = create_payload(request, bot_id)
 
     # get cloud run access token
