@@ -55,7 +55,7 @@ class BatchMeetingRequest(BaseModel):
     userId: str
 
 
-def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, group_id: UUID4 | None = None) -> dict:
+def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, group_id: str | None = None) -> dict:
     return {
         'overrides': {
             "containerOverrides": [
@@ -63,7 +63,7 @@ def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, g
                     "env": [
                         {"name": "MEETING_URL", "value": request.meetingUrl},
                         {"name": "BOTNAME", "value": request.botName},
-                        {"name": "TIMEOUT", "value": str(request.timeout)},
+                        {"name": "TIMEOUT", "value": request.timeout},
                         {"name": "BOT_ID", "value": bot_id},
                         {"name": "WS_LINK", "value": request.wsLink},
                         {"name": "FROM_ID", "value": request.fromId},
@@ -176,7 +176,7 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
             },
             json=payload
         )
-    return {"success": "true"}
+    return {"success": True}
 
 
 @app.post("/test/zoom")
@@ -212,7 +212,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
         json=payload
     )
 
-    return start_job.json()
+    return {"success":True}
 
 
 if __name__ == "__main__":
