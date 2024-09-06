@@ -19,6 +19,7 @@ class ZoomBot(BotBase):
         super().__init__(ws_link, meeting_id, botName, timeout, bot_id, to_id, group_id)
 
     def termination_check(self):
+        self.driver.implicitly_wait(0.2)
         meeting_ended: list = self.driver.find_elements(By.XPATH, '//div[@aria-label="Meeting is end now"]')
         removed: list = self.driver.find_elements(By.XPATH, '//div[@aria-label="You have been removed"]')
         if meeting_ended or removed:
@@ -64,6 +65,8 @@ class ZoomBot(BotBase):
             self.driver.find_element(By.CLASS_NAME, 'SvgShare')
             self.last_status = "Joined meeting"
 
+            self.started_time = datetime.now()
+            
             # Wait for the element with text "Join Audio by Computer" to appear
             join_audio_button = WebDriverWait(self.driver, 60).until(
                 EC.presence_of_element_located((By.XPATH, '//*[text()="Join Audio by Computer"]'))
@@ -98,9 +101,11 @@ class ZoomBot(BotBase):
                 now = datetime.now()
                 time_difference = now - self.started_time
                 if time_difference.total_seconds() > self.timeout:
+                    print("quitting, time diff:",time_difference.total_seconds())
                     raise Exception("Timeout Reached")
                 self.termination_check()
                 sleep(POLL_RATE)
 
         except Exception as e:
+            print(e)
             raise Exception("Internal bot error")

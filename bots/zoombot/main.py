@@ -25,6 +25,7 @@ if __name__ == '__main__':
         )
         bot.join_meeting()
     except Exception as e:
+        print("Error:", e)
         BASE_URL = 'https://backend-testing-514385437890.us-central1.run.app'
         USER_ID = environ.get("FROM_ID")
         BOT_ID = environ.get("BOT_ID")
