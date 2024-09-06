@@ -66,7 +66,7 @@ class ZoomBot(BotBase):
             self.last_status = "Joined meeting"
 
             self.started_time = datetime.now()
-            
+
             # Wait for the element with text "Join Audio by Computer" to appear
             join_audio_button = WebDriverWait(self.driver, 60).until(
                 EC.presence_of_element_located((By.XPATH, '//*[text()="Join Audio by Computer"]'))
@@ -101,7 +101,7 @@ class ZoomBot(BotBase):
                 now = datetime.now()
                 time_difference = now - self.started_time
                 if time_difference.total_seconds() > self.timeout:
-                    print("quitting, time diff:",time_difference.total_seconds())
+                    print("quitting, time diff:", time_difference.total_seconds())
                     raise Exception("Timeout Reached")
                 self.termination_check()
                 sleep(POLL_RATE)
