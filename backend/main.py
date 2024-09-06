@@ -7,7 +7,7 @@ import aiohttp
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel
 from supabase import AClient, acreate_client
 
 from utils.aiohttp_singleton import HttpClient
@@ -176,7 +176,8 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
             },
             json=payload
         )
-   
+        print("Launched", i + 1)
+
     return {"success": True}
 
 
