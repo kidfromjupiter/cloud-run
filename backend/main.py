@@ -168,17 +168,19 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
     }).execute()
 
     # send requests to google cloud run to start jobs
+    response_list = [] 
     for i in range(request.numberOfBots):
-        await http_client.post(
+        response = await http_client.post(
             zoombotTestingStartUrl,
             headers={
                 'Authorization': f'Bearer {access_token}',
             },
             json=payload
         )
-        print("Launched", i + 1)
+        response_json = await response.json()
+        response_list.append(response_json)
 
-    return {"success": True}
+    return response_list
 
 
 @app.post("/test/zoom")
