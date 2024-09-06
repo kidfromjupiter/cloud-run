@@ -4,6 +4,7 @@ import threading
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.webdriver import WebDriver
+from datetime import datetime
 
 from .ws_manager import WebsocketConnection
 
@@ -24,6 +25,7 @@ class BotBase:
         self.timeout = timeout
         self.last_status = "Bot started"
         self.group_id = group_id
+        self.started_time = datetime.now()
         # Create Chrome instance
 
         opt = Options()
@@ -48,6 +50,7 @@ class BotBase:
 
         print("Starting timer...")
         self.timer = threading.Timer(int(interval), func)
+        self.timer.daemon = True
         self.timer.start()
         self.timer_running = True
 
@@ -74,9 +77,8 @@ class BotBase:
                 self.websocket.send_status(self.last_status, self.bot_name, self.meeting_id)
 
     def exit_func(self):
-        # self.driver.quit()
+        self.driver.quit()
         print("Timeout reached. Quitting...")
-        raise Exception("Timeout reached. Quitting...")
 
     def send_status(self):
         pass

@@ -1,6 +1,6 @@
 import logging as lg
 import re
-from threading import Timer
+from datetime import datetime
 from time import sleep
 
 from selenium.webdriver.common.by import By
@@ -11,33 +11,19 @@ from .botbase import BotBase
 
 lg.basicConfig(level=lg.DEBUG, filename="py_log.log", filemode="w")
 WAIT_ADMIT_TIME = 120
-POLL_RATE = 0.1
-
-
-def set_interval(func, sec):
-    def func_wrapper():
-        set_interval(func, sec)
-        func()
-
-    t = Timer(sec, func_wrapper)
-    t.daemon = True
-    t.start()
-    return t
+POLL_RATE = 0.5
 
 
 class ZoomBot(BotBase):
     def __init__(self, ws_link, meeting_id, botName, timeout, bot_id, to_id, group_id):
         super().__init__(ws_link, meeting_id, botName, timeout, bot_id, to_id, group_id)
 
-    def _check_ended(self):
+    def termination_check(self):
         meeting_ended: list = self.driver.find_elements(By.XPATH, '//div[@aria-label="Meeting is end now"]')
         removed: list = self.driver.find_elements(By.XPATH, '//div[@aria-label="You have been removed"]')
         if meeting_ended or removed:
             self.exit_func()
             raise Exception("Meeting ended")
-
-    def start_termination_checks(self):
-        set_interval(self._check_ended, 10)
 
     def join_meeting(self):
         try:
@@ -107,8 +93,14 @@ class ZoomBot(BotBase):
             # Click the stop video button
             stop_video_button.click()
 
-            # start timeout
-            self.start_timer(self.timeout, self.exit_func)
+            # main event loop
+            while True:
+                now = datetime.now()
+                time_difference = now - self.started_time
+                if time_difference.total_seconds() > self.timeout:
+                    raise Exception("Timeout Reached")
+                self.termination_check()
+                sleep(POLL_RATE)
 
         except Exception as e:
             raise Exception("Internal bot error")
