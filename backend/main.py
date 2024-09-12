@@ -7,9 +7,11 @@ import aiohttp
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 from supabase import AClient, acreate_client
 
+from backend.utils.models import MeetingRequest, BatchMeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
+    ZoomResponse
 from utils.aiohttp_singleton import HttpClient
 
 load_dotenv(".env")
@@ -30,29 +32,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+def getStartUrl(location: str):
+    return f"https://run.googleapis.com/v2/projects/woven-arcadia-432212-a6/locations/{location}/jobs/zoombot-testing:run"
+
+
 metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
-zoombotTestingStartUrl = "https://run.googleapis.com/v2/projects/woven-arcadia-432212-a6/locations/us-central1/jobs/zoombot-testing:run"
-
-
-class MeetingRequest(BaseModel):
-    meetingUrl: str
-    timeout: int
-    botName: str
-    botId: str
-    fromId: str
-    wsLink: str
-    userId: str
-
-
-class BatchMeetingRequest(BaseModel):
-    meetingUrl: str
-    timeout: int
-    botName: str
-    botId: str
-    fromId: str
-    wsLink: str
-    numberOfBots: int
-    userId: str
 
 
 def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, group_id: str | None = None) -> dict:
@@ -135,7 +121,11 @@ async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSes
     }
 
 
-@app.post("/test/batch/zoom")
+@app.post("/test/batch/zoom",
+          responses={
+              410: {"model": InsufficientFunds},
+              200: {"model": ZoomBatchResponse}
+          })
 async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
     payload = create_payload(request, bot_id)
@@ -146,7 +136,7 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
 
     total_credits_for_botgroup = request.timeout * request.numberOfBots // 60  # timeout is specified in seconds
     if profile_data_list[0]["credits"] < total_credits_for_botgroup:
-        return {"status": "insufficient_credits"}
+        return JSONResponse(status_code=410, content={"desc": "insufficient_credits"})
 
     # get cloud run access token
     r = await http_client.post(
@@ -159,7 +149,7 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
     access_token = json['access_token']
 
     # create entry in bot groups table
-    await supabase_client.schema("public").table('botgroups').insert({
+    supabase_response = await supabase_client.schema("public").table('botgroups').insert({
         "meeting_url": request.meetingUrl,
         "timeout": request.timeout,
         "number": request.numberOfBots,
@@ -168,26 +158,64 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
     }).execute()
 
     # send requests to google cloud run to start jobs
-    response_list = [] 
-    for i in range(request.numberOfBots):
-        response = await http_client.post(
-            zoombotTestingStartUrl,
-            headers={
-                'Authorization': f'Bearer {access_token}',
-            },
-            json=payload
-        )
-        response_json = await response.json()
-        response_list.append(response_json)
+    response_list = []
+    changed_rows = []
+    (data, count) = await (supabase_client.table('locations')
+                           .select('name,last_modified,value')
+                           .execute())
+    all_locs = [Location(**loc) for loc in data[1]]
+    for _ in range(request.numberOfBots):
+        for location in all_locs:
+            val = location.value
+            if val >= 64:
+                time_delta = datetime.now(tz=timezone.utc) - datetime.fromisoformat(
+                    location.last_modified)
+                print(time_delta.total_seconds())
+                if time_delta.total_seconds() >= 60:
+                    location.value = 0
+                else:
+                    print("switched to another location")
+                    # endpoint will hit rate limit if another request is made. So switch to another loc
+                    continue
+            response = await http_client.post(
+                getStartUrl(str(location.name)),
+                headers={
+                    'Authorization': f'Bearer {access_token}',
+                },
+                json=payload
+            )
+            location.value = location.value + 1
+            location.last_modified = datetime.now(tz=timezone.utc).isoformat()
+            if location not in changed_rows: changed_rows.append(location)
 
-    return response_list
+            response_json = await response.json()
+            response_list.append(response_json)
+            break
+    if changed_rows:
+        await supabase_client.table('locations').upsert(
+            [l.model_dump() for l in changed_rows],
+            on_conflict="name"
+        ).execute()
+
+    return supabase_response
 
 
-@app.post("/test/zoom")
+@app.post("/test/zoom",
+          responses={
+              200: {"model": ZoomResponse},
+              410: {"model": InsufficientFunds}
+          })
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
     payload = create_payload(request, bot_id)
 
+    # get credits and see if this bot group is runnable
+    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
+                                                                                                       f'{request.userId}').execute()
+
+    total_credits_for_bot = request.timeout // 60  # timeout is specified in seconds
+    if profile_data_list[0]["credits"] < total_credits_for_bot:
+        return JSONResponse(status_code=410, content={"desc": "insufficient_credits"})
     # get cloud run access token
     r = await http_client.post(
         metadataUrl,
@@ -199,7 +227,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
     access_token = json['access_token']
 
     # create entry in bots table
-    await supabase_client.schema("public").table('bots').insert({
+    supabase_response = await supabase_client.schema("public").table('bots').insert({
         "meeting_url": request.meetingUrl,
         "timeout": request.timeout,
         "user_id": request.userId,
@@ -207,17 +235,52 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
     }).execute()
 
     # send reqeust to google cloud run to start the job
-    start_job = await http_client.post(
-        zoombotTestingStartUrl,
-        headers={
-            'Authorization': f'Bearer {access_token}',
-        },
-        json=payload
-    )
-    return_data = await start_job.json()
+    return_data = None
+    changed_rows = []
+    (data, count) = await (supabase_client.table('locations')
+                           .select('name,last_modified,value')
+                           .execute())
+    all_locs = [Location(**loc) for loc in data[1]]
+    for location in all_locs:
+        val = location.value
+        if val >= 64:
+            time_delta = datetime.now(tz=timezone.utc) - datetime.fromisoformat(
+                location.last_modified)
+            print(time_delta.total_seconds())
+            if time_delta.total_seconds() >= 60:
+                location.value = 0
+            else:
+                print("switched to another location")
+                # endpoint will hit rate limit if another request is made. So switch to another loc
+                continue
+        response = await http_client.post(
+            getStartUrl(str(location.name)),
+            headers={
+                'Authorization': f'Bearer {access_token}',
+            },
+            json=payload
+        )
+        location.value = location.value + 1
+        location.last_modified = datetime.now(tz=timezone.utc).isoformat()
+        if location not in changed_rows: changed_rows.append(location)
 
-    return return_data
+        break
+    if changed_rows:
+        await supabase_client.table('locations').upsert(
+            [l.model_dump() for l in changed_rows],
+            on_conflict="name"
+        ).execute()
 
+    return supabase_response
+
+
+@app.post("/test/killall")
+async def kill_all():
+    return JSONResponse(status_code=200)
+
+@app.post("/test/batch/killall")
+async def kill_all_batch():
+    return JSONResponse(status_code=200)
 
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=int(environ.get('PORT') or 8000))
