@@ -10,7 +10,7 @@ from fastapi import FastAPI, Depends
 from fastapi.responses import JSONResponse
 from supabase import AClient, acreate_client
 
-from backend.utils.models import MeetingRequest, BatchMeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
+from utils.models import MeetingRequest, BatchMeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
     ZoomResponse
 from utils.aiohttp_singleton import HttpClient
 
