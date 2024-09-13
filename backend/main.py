@@ -128,7 +128,8 @@ async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSes
           })
 async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
-    payload = create_payload(request, bot_id)
+    bot_group_id = bot_id
+    payload = create_payload(request, bot_id, bot_group_id)
 
     # get credits and see if this bot group is runnable
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
@@ -154,7 +155,8 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
         "timeout": request.timeout,
         "number": request.numberOfBots,
         "alive": request.numberOfBots,
-        "user_id": request.userId
+        "user_id": request.userId,
+        "id": bot_group_id
     }).execute()
 
     # send requests to google cloud run to start jobs
