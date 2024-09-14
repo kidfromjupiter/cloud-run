@@ -49,9 +49,15 @@ class ZoomBatchSBResponse(BaseModel):
     number: int
     alive: int
 
+
+class ProfileInfo(BaseModel):
+    userId: str
+   
+
 class ZoomBatchResponse(BaseModel):
     data: list[ZoomBatchSBResponse]
     count: None | int
+
 
 class ZoomResponse(BaseModel):
     data: list[ZoomSBResponse]
