@@ -69,6 +69,28 @@ def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, g
     }
 
 
+@app.get("/test/bots/{user_id}",
+         responses={
+             200: {"model": ZoomResponse}
+         })
+async def bots(user_id: str):
+    response = await (supabase_client.table("bots")
+                      .select("*")
+                      .eq("user_id", user_id)
+                      ).execute()
+    return response
+
+@app.get("/test/groups/{user_id}",
+         responses={
+             200: {"model": ZoomBatchResponse}
+         })
+async def bots(user_id: str):
+    response = await (supabase_client.table("botgroups")
+                      .select("*")
+                      .eq("user_id", user_id)
+                      ).execute()
+    return response
+
 @app.get("/", tags=["root"])
 async def root():
     return {"message": "Hello World"}
