@@ -1,19 +1,21 @@
+import io
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from os import environ
+from typing import Annotated
 
 import aiohttp
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import AClient, acreate_client
 
 from utils.aiohttp_singleton import HttpClient
-from utils.models import MeetingRequest, BatchMeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
-    ZoomResponse
+from utils.models import MeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
+    ZoomResponse, MalformedRequest
 
 load_dotenv(".env")
 
@@ -49,18 +51,22 @@ def getStartUrl(location: str):
 metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token"
 
 
-def create_payload(request: MeetingRequest | BatchMeetingRequest, bot_id: str, group_id: str | None = None) -> dict:
+def create_payload(
+        meetingUrl: str,
+        botName: str, wsLink: str,
+        fromId: str, timeout: int,
+        bot_id: str, group_id: str | None = None) -> dict:
     return {
         'overrides': {
             "containerOverrides": [
                 {
                     "env": [
-                        {"name": "MEETING_URL", "value": request.meetingUrl},
-                        {"name": "BOTNAME", "value": request.botName},
-                        {"name": "TIMEOUT", "value": str(request.timeout)},
+                        {"name": "MEETING_URL", "value": meetingUrl},
+                        {"name": "BOTNAME", "value": botName},
+                        {"name": "TIMEOUT", "value": str(timeout)},
                         {"name": "BOT_ID", "value": bot_id},
-                        {"name": "WS_LINK", "value": request.wsLink},
-                        {"name": "FROM_ID", "value": request.fromId},
+                        {"name": "WS_LINK", "value": wsLink},
+                        {"name": "FROM_ID", "value": fromId},
                         {"name": "GROUP_ID", "value": group_id},
                     ]
                 }
@@ -80,16 +86,18 @@ async def bots(user_id: str):
                       ).execute()
     return response
 
+
 @app.get("/test/groups/{user_id}",
          responses={
              200: {"model": ZoomBatchResponse}
          })
-async def bots(user_id: str):
+async def bots_groups(user_id: str):
     response = await (supabase_client.table("botgroups")
                       .select("*")
                       .eq("user_id", user_id)
                       ).execute()
     return response
+
 
 @app.get("/", tags=["root"])
 async def root():
@@ -129,7 +137,7 @@ async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSes
                                                                                                                f'{group_id}').execute()
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
                                                                                                        f'{user_id}').execute()
-    # calculating leftover credits
+    # calculating leftovr credits
     credit = profile_data_list[0]["credits"]
     started_time = datetime.fromisoformat(bot_group_data_list[0]["created_at"])
     time_now = datetime.now(timezone.utc)
@@ -154,18 +162,33 @@ async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSes
 @app.post("/test/batch/zoom",
           responses={
               410: {"model": InsufficientFunds},
-              200: {"model": ZoomBatchResponse}
+              200: {"model": ZoomBatchResponse},
+              404: {"model": MalformedRequest}
           })
-async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
+async def launch_batch_zoombot(timeout: Annotated[int, Form()],
+                               userId: Annotated[str, Form()],
+                               numberOfBots: Annotated[int, Form()],
+                               meetingUrl: Annotated[str, Form()],
+                               wsLink: Annotated[str, Form()],
+                               nameFile: UploadFile,
+                               groupName: Annotated[str, Form()],
+                               http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
     bot_group_id = bot_id
-    payload = create_payload(request, bot_id, bot_group_id)
+    names = []
+    with nameFile.file as f:
+        for line in io.TextIOWrapper(f, encoding='utf-8'):
+            names.append(line.rstrip())
+
+    if numberOfBots != len(names):
+        return JSONResponse(status_code=404,
+                            content={"desc": "Number of bots must be equal to the number of names provided"})
 
     # get credits and see if this bot group is runnable
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
-                                                                                                       f'{request.userId}').execute()
+                                                                                                       f'{userId}').execute()
 
-    total_credits_for_botgroup = request.timeout * request.numberOfBots // 60  # timeout is specified in seconds
+    total_credits_for_botgroup = timeout * numberOfBots // 60  # timeout is specified in seconds
     if profile_data_list[0]["credits"] < total_credits_for_botgroup:
         return JSONResponse(status_code=410, content={"desc": "insufficient_credits"})
 
@@ -181,12 +204,13 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
 
     # create entry in bot groups table
     supabase_response = await supabase_client.schema("public").table('botgroups').insert({
-        "meeting_url": request.meetingUrl,
-        "timeout": request.timeout,
-        "number": request.numberOfBots,
-        "alive": request.numberOfBots,
-        "user_id": request.userId,
-        "id": bot_group_id
+        "meeting_url": meetingUrl,
+        "timeout": timeout,
+        "number": numberOfBots,
+        "alive": numberOfBots,
+        "user_id": userId,
+        "id": bot_group_id,
+        "name": groupName
     }).execute()
 
     # send requests to google cloud run to start jobs
@@ -196,7 +220,15 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
                            .select('name,last_modified,value')
                            .execute())
     all_locs = [Location(**loc) for loc in data[1]]
-    for _ in range(request.numberOfBots):
+    for i in range(numberOfBots):
+        payload = create_payload(
+            meetingUrl=meetingUrl,
+            timeout=timeout,
+            wsLink=wsLink,
+            botName=names[i],
+            fromId=bot_id
+            , bot_id=bot_id, group_id=bot_group_id)
+        print(names[i])
         for location in all_locs:
             val = location.value
             if val >= 64:
@@ -239,8 +271,16 @@ async def launch_batch_zoombot(request: BatchMeetingRequest, http_client: aiohtt
           })
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
-    payload = create_payload(request, bot_id)
+    payload = create_payload(
+        meetingUrl=request.meetingUrl,
+        wsLink=request.wsLink,
+        timeout=request.timeout,
+        botName=request.botName,
+        fromId=request.fromId,
+        bot_id=bot_id
+    )
 
+    print(payload)
     # get credits and see if this bot group is runnable
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
                                                                                                        f'{request.userId}').execute()
@@ -263,7 +303,8 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
         "meeting_url": request.meetingUrl,
         "timeout": request.timeout,
         "user_id": request.userId,
-        "id": bot_id
+        "id": bot_id,
+        "name": request.botName
     }).execute()
 
     # send reqeust to google cloud run to start the job

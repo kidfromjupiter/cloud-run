@@ -31,6 +31,8 @@ class Location(BaseModel):
 class InsufficientFunds(BaseModel):
     desc: str
 
+class MalformedRequest(BaseModel):
+    desc: str
 
 class ZoomSBResponse(BaseModel):
     id: str
@@ -39,6 +41,7 @@ class ZoomSBResponse(BaseModel):
     timeout: int = Field(default=None, description="Timeout of the bot in seconds")
     completed: bool
     user_id: str
+    name: str
 
 
 class ZoomBatchSBResponse(BaseModel):
@@ -48,11 +51,12 @@ class ZoomBatchSBResponse(BaseModel):
     timeout: int = Field(default=None, description="Timeout of the bot in seconds")
     number: int
     alive: int
+    name: str
 
 
 class ProfileInfo(BaseModel):
     userId: str
-   
+
 
 class ZoomBatchResponse(BaseModel):
     data: list[ZoomBatchSBResponse]
