@@ -31,7 +31,7 @@ class ZoomSBResponse(BaseModel):
     timeout: int = Field(default=None, description="Timeout of the bot in seconds")
     completed: bool
     user_id: str
-    group_name: str
+    name: str
 
 
 class ZoomBatchSBResponse(BaseModel):
