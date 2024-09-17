@@ -2,24 +2,24 @@ from pydantic import BaseModel, Field
 
 
 class MeetingRequest(BaseModel):
-    meetingUrl: str
+    meeting_url: str
     timeout: int = Field(default=None, description="Timeout of the bot in seconds")
-    botName: str
-    botId: str
-    fromId: str
-    wsLink: str
-    userId: str
+    bot_name: str
+    bot_id: str
+    from_id: str
+    ws_link: str
+    user_id: str
 
 
 class BatchMeetingRequest(BaseModel):
-    meetingUrl: str
+    meeting_url: str
     timeout: int
-    botName: str
-    botId: str
-    fromId: str
-    wsLink: str
-    numberOfBots: int
-    userId: str
+    bot_name: str
+    bot_id: str
+    from_id: str
+    ws_link: str
+    number_of_bots: int
+    user_id: str
 
 
 class Location(BaseModel):
@@ -31,8 +31,10 @@ class Location(BaseModel):
 class InsufficientFunds(BaseModel):
     desc: str
 
+
 class MalformedRequest(BaseModel):
     desc: str
+
 
 class ZoomSBResponse(BaseModel):
     id: str
@@ -41,7 +43,7 @@ class ZoomSBResponse(BaseModel):
     timeout: int = Field(default=None, description="Timeout of the bot in seconds")
     completed: bool
     user_id: str
-    name: str
+    group_name: str
 
 
 class ZoomBatchSBResponse(BaseModel):

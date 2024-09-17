@@ -137,7 +137,7 @@ async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSes
                                                                                                                f'{group_id}').execute()
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
                                                                                                        f'{user_id}').execute()
-    # calculating leftovr credits
+    # calculating leftover credits
     credit = profile_data_list[0]["credits"]
     started_time = datetime.fromisoformat(bot_group_data_list[0]["created_at"])
     time_now = datetime.now(timezone.utc)
@@ -166,29 +166,29 @@ async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSes
               404: {"model": MalformedRequest}
           })
 async def launch_batch_zoombot(timeout: Annotated[int, Form()],
-                               userId: Annotated[str, Form()],
-                               numberOfBots: Annotated[int, Form()],
-                               meetingUrl: Annotated[str, Form()],
-                               wsLink: Annotated[str, Form()],
-                               nameFile: UploadFile,
-                               groupName: Annotated[str, Form()],
+                               user_id: Annotated[str, Form()],
+                               number_of_bots: Annotated[int, Form()],
+                               meeting_url: Annotated[str, Form()],
+                               ws_link: Annotated[str, Form()],
+                               name_file: UploadFile,
+                               group_name: Annotated[str, Form()],
                                http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
     bot_group_id = bot_id
     names = []
-    with nameFile.file as f:
+    with name_file.file as f:
         for line in io.TextIOWrapper(f, encoding='utf-8'):
             names.append(line.rstrip())
 
-    if numberOfBots != len(names):
+    if number_of_bots != len(names):
         return JSONResponse(status_code=404,
                             content={"desc": "Number of bots must be equal to the number of names provided"})
 
     # get credits and see if this bot group is runnable
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
-                                                                                                       f'{userId}').execute()
+                                                                                                       f'{user_id}').execute()
 
-    total_credits_for_botgroup = timeout * numberOfBots // 60  # timeout is specified in seconds
+    total_credits_for_botgroup = timeout * number_of_bots // 60  # timeout is specified in seconds
     if profile_data_list[0]["credits"] < total_credits_for_botgroup:
         return JSONResponse(status_code=410, content={"desc": "insufficient_credits"})
 
@@ -204,13 +204,13 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
 
     # create entry in bot groups table
     supabase_response = await supabase_client.schema("public").table('botgroups').insert({
-        "meeting_url": meetingUrl,
+        "meeting_url": meeting_url,
         "timeout": timeout,
-        "number": numberOfBots,
-        "alive": numberOfBots,
-        "user_id": userId,
+        "number": number_of_bots,
+        "alive": number_of_bots,
+        "user_id": user_id,
         "id": bot_group_id,
-        "name": groupName
+        "group_name": group_name
     }).execute()
 
     # send requests to google cloud run to start jobs
@@ -220,11 +220,11 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
                            .select('name,last_modified,value')
                            .execute())
     all_locs = [Location(**loc) for loc in data[1]]
-    for i in range(numberOfBots):
+    for i in range(number_of_bots):
         payload = create_payload(
-            meetingUrl=meetingUrl,
+            meetingUrl=meeting_url,
             timeout=timeout,
-            wsLink=wsLink,
+            wsLink=ws_link,
             botName=names[i],
             fromId=bot_id
             , bot_id=bot_id, group_id=bot_group_id)
@@ -258,7 +258,7 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
     if changed_rows:
         await supabase_client.table('locations').upsert(
             [l.model_dump() for l in changed_rows],
-            on_conflict="name"
+            on_conflict="group_name"
         ).execute()
 
     return supabase_response
