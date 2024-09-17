@@ -83,6 +83,7 @@ async def bots(user_id: str):
     response = await (supabase_client.table("bots")
                       .select("*")
                       .eq("user_id", user_id)
+                      .eq("completed", False)
                       ).execute()
     return response
 
@@ -95,6 +96,7 @@ async def bots_groups(user_id: str):
     response = await (supabase_client.table("botgroups")
                       .select("*")
                       .eq("user_id", user_id)
+                      .gt("alive", 0)
                       ).execute()
     return response
 
@@ -291,7 +293,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
     total_credits_for_bot = request.timeout // 60  # timeout is specified in seconds
     if profile_data_list[0]["credits"] < total_credits_for_bot:
         return JSONResponse(status_code=410, content={"desc": "insufficient_credits"})
-    
+
     if environ.get("ENV") != "DEV":
         # get cloud run access token
         r = await http_client.post(
@@ -353,16 +355,32 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
     return supabase_response
 
 
-@app.post("/test/kill/{id}")
+@app.post("/test/kill/{id}",
+          responses={
+              200: {"model": ZoomResponse}
+          })
 async def kill_specific_individual(id: str):
     # TODO: add logic for killing specific bots
-    return True
+    r = await (supabase_client.table("bots")
+               .update({"completed": True})
+               .eq("id", id)
+               .execute()
+               )
+    return r
 
 
-@app.post("/test/batch/kill/{id}")
+@app.post("/test/batch/kill/{id}",
+          responses={
+              200: {"model": ZoomBatchResponse}
+          })
 async def kill_specific_batch(id: str):
     # TODO: add logic for killing specific botgroups
-    return True
+    r = await (supabase_client.table("botgroups")
+               .update({"alive": 0})
+               .eq("id", id)
+               .execute()
+               )
+    return r
 
 
 @app.post("/test/killall")
