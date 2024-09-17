@@ -56,3 +56,6 @@ class ZoomBatchResponse(BaseModel):
 class ZoomResponse(BaseModel):
     data: list[ZoomSBResponse]
     count: None | int
+
+class KillAllRequest(BaseModel):
+    user_id: str

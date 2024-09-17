@@ -15,7 +15,7 @@ from supabase import AClient, acreate_client
 
 from utils.aiohttp_singleton import HttpClient
 from utils.models import MeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
-    ZoomResponse, MalformedRequest
+    ZoomResponse, MalformedRequest, KillAllRequest
 
 load_dotenv(".env")
 
@@ -384,13 +384,23 @@ async def kill_specific_batch(id: str):
 
 
 @app.post("/test/killall")
-async def kill_all():
-    return True
+async def kill_all(request: KillAllRequest):
+    r = await (supabase_client.table("bots")
+               .update({"completed": True})
+               .eq("user_id", request.user_id)
+               .execute()
+               )
+    return r
 
 
 @app.post("/test/batch/killall")
-async def kill_all_batch():
-    return True
+async def kill_all_batch(request: KillAllRequest):
+    r = await (supabase_client.table("botgroups")
+               .update({"alive": 0})
+               .eq("user_id", request.user_id)
+               .execute()
+               )
+    return r
 
 
 if __name__ == "__main__":
