@@ -192,15 +192,17 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
     if profile_data_list[0]["credits"] < total_credits_for_botgroup:
         return JSONResponse(status_code=410, content={"desc": "insufficient_credits"})
 
-    # get cloud run access token
-    r = await http_client.post(
-        metadataUrl,
-        headers={
-            "Metadata-Flavor": "Google"
-        }
-    )
-    json = await r.json()
-    access_token = json['access_token']
+    access_token = None
+    if environ.get("ENV") != "DEV":
+        # get cloud run access token
+        r = await http_client.post(
+            metadataUrl,
+            headers={
+                "Metadata-Flavor": "Google"
+            }
+        )
+        json = await r.json()
+        access_token = json['access_token']
 
     # create entry in bot groups table
     supabase_response = await supabase_client.schema("public").table('botgroups').insert({
@@ -210,7 +212,7 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
         "alive": number_of_bots,
         "user_id": user_id,
         "id": bot_group_id,
-        "group_name": group_name
+        "name": group_name
     }).execute()
 
     # send requests to google cloud run to start jobs
@@ -241,24 +243,25 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
                     print("switched to another location")
                     # endpoint will hit rate limit if another request is made. So switch to another loc
                     continue
-            response = await http_client.post(
-                getStartUrl(str(location.name)),
-                headers={
-                    'Authorization': f'Bearer {access_token}',
-                },
-                json=payload
-            )
+            if environ.get("ENV") != "DEV" and access_token is not None:
+                response = await http_client.post(
+                    getStartUrl(str(location.name)),
+                    headers={
+                        'Authorization': f'Bearer {access_token}',
+                    },
+                    json=payload
+                )
+                response_json = await response.json()
+                response_list.append(response_json)
             location.value = location.value + 1
             location.last_modified = datetime.now(tz=timezone.utc).isoformat()
             if location not in changed_rows: changed_rows.append(location)
 
-            response_json = await response.json()
-            response_list.append(response_json)
             break
     if changed_rows:
         await supabase_client.table('locations').upsert(
             [l.model_dump() for l in changed_rows],
-            on_conflict="group_name"
+            on_conflict="name"
         ).execute()
 
     return supabase_response
@@ -272,39 +275,41 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
     payload = create_payload(
-        meeting_url=request.meetingUrl,
-        ws_link=request.wsLink,
+        meeting_url=request.meeting_url,
+        ws_link=request.ws_link,
         timeout=request.timeout,
-        bot_name=request.botName,
-        from_id=request.fromId,
+        bot_name=request.name,
+        from_id=request.from_id,
         bot_id=bot_id
     )
 
     print(payload)
     # get credits and see if this bot group is runnable
     (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
-                                                                                                       f'{request.userId}').execute()
+                                                                                                       f'{request.user_id}').execute()
 
     total_credits_for_bot = request.timeout // 60  # timeout is specified in seconds
     if profile_data_list[0]["credits"] < total_credits_for_bot:
         return JSONResponse(status_code=410, content={"desc": "insufficient_credits"})
-    # get cloud run access token
-    r = await http_client.post(
-        metadataUrl,
-        headers={
-            "Metadata-Flavor": "Google"
-        }
-    )
-    json = await r.json()
-    access_token = json['access_token']
+    
+    if environ.get("ENV") != "DEV":
+        # get cloud run access token
+        r = await http_client.post(
+            metadataUrl,
+            headers={
+                "Metadata-Flavor": "Google"
+            }
+        )
+        json = await r.json()
+        access_token = json['access_token']
 
     # create entry in bots table
     supabase_response = await supabase_client.schema("public").table('bots').insert({
-        "meeting_url": request.meetingUrl,
+        "meeting_url": request.meeting_url,
         "timeout": request.timeout,
-        "user_id": request.userId,
+        "user_id": request.user_id,
         "id": bot_id,
-        "name": request.botName
+        "name": request.name
     }).execute()
 
     # send reqeust to google cloud run to start the job
@@ -326,13 +331,14 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
                 print("switched to another location")
                 # endpoint will hit rate limit if another request is made. So switch to another loc
                 continue
-        response = await http_client.post(
-            getStartUrl(str(location.name)),
-            headers={
-                'Authorization': f'Bearer {access_token}',
-            },
-            json=payload
-        )
+        if environ.get("ENV") != "DEV":
+            response = await http_client.post(
+                getStartUrl(str(location.name)),
+                headers={
+                    'Authorization': f'Bearer {access_token}',
+                },
+                json=payload
+            )
         location.value = location.value + 1
         location.last_modified = datetime.now(tz=timezone.utc).isoformat()
         if location not in changed_rows: changed_rows.append(location)
@@ -350,23 +356,23 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
 @app.post("/test/kill/{id}")
 async def kill_specific_individual(id: str):
     # TODO: add logic for killing specific bots
-    return JSONResponse(status_code=200)
+    return True
 
 
 @app.post("/test/batch/kill/{id}")
 async def kill_specific_batch(id: str):
     # TODO: add logic for killing specific botgroups
-    return JSONResponse(status_code=200)
+    return True
 
 
 @app.post("/test/killall")
 async def kill_all():
-    return JSONResponse(status_code=200)
+    return True
 
 
 @app.post("/test/batch/killall")
 async def kill_all_batch():
-    return JSONResponse(status_code=200)
+    return True
 
 
 if __name__ == "__main__":
