@@ -5,20 +5,8 @@ class MeetingRequest(BaseModel):
     meeting_url: str
     timeout: int = Field(default=None, description="Timeout of the bot in seconds")
     bot_name: str
-    bot_id: str
     from_id: str
     ws_link: str
-    user_id: str
-
-
-class BatchMeetingRequest(BaseModel):
-    meeting_url: str
-    timeout: int
-    bot_name: str
-    bot_id: str
-    from_id: str
-    ws_link: str
-    number_of_bots: int
     user_id: str
 
 

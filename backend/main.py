@@ -52,21 +52,21 @@ metadataUrl = "http://metadata.google.internal/computeMetadata/v1/instance/servi
 
 
 def create_payload(
-        meetingUrl: str,
-        botName: str, wsLink: str,
-        fromId: str, timeout: int,
+        meeting_url: str,
+        bot_name: str, ws_link: str,
+        from_id: str, timeout: int,
         bot_id: str, group_id: str | None = None) -> dict:
     return {
         'overrides': {
             "containerOverrides": [
                 {
                     "env": [
-                        {"name": "MEETING_URL", "value": meetingUrl},
-                        {"name": "BOTNAME", "value": botName},
+                        {"name": "MEETING_URL", "value": meeting_url},
+                        {"name": "BOTNAME", "value": bot_name},
                         {"name": "TIMEOUT", "value": str(timeout)},
                         {"name": "BOT_ID", "value": bot_id},
-                        {"name": "WS_LINK", "value": wsLink},
-                        {"name": "FROM_ID", "value": fromId},
+                        {"name": "WS_LINK", "value": ws_link},
+                        {"name": "FROM_ID", "value": from_id},
                         {"name": "GROUP_ID", "value": group_id},
                     ]
                 }
@@ -222,11 +222,11 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
     all_locs = [Location(**loc) for loc in data[1]]
     for i in range(number_of_bots):
         payload = create_payload(
-            meetingUrl=meeting_url,
+            meeting_url=meeting_url,
             timeout=timeout,
-            wsLink=ws_link,
-            botName=names[i],
-            fromId=bot_id
+            ws_link=ws_link,
+            bot_name=names[i],
+            from_id=bot_id
             , bot_id=bot_id, group_id=bot_group_id)
         print(names[i])
         for location in all_locs:
@@ -272,11 +272,11 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
     payload = create_payload(
-        meetingUrl=request.meetingUrl,
-        wsLink=request.wsLink,
+        meeting_url=request.meetingUrl,
+        ws_link=request.wsLink,
         timeout=request.timeout,
-        botName=request.botName,
-        fromId=request.fromId,
+        bot_name=request.botName,
+        from_id=request.fromId,
         bot_id=bot_id
     )
 
@@ -345,6 +345,18 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
         ).execute()
 
     return supabase_response
+
+
+@app.post("/test/kill/{id}")
+async def kill_specific_individual(id: str):
+    # TODO: add logic for killing specific bots
+    return JSONResponse(status_code=200)
+
+
+@app.post("/test/batch/kill/{id}")
+async def kill_specific_batch(id: str):
+    # TODO: add logic for killing specific botgroups
+    return JSONResponse(status_code=200)
 
 
 @app.post("/test/killall")
