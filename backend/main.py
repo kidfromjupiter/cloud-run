@@ -392,14 +392,18 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
           responses={
               200: {"model": ZoomResponse}
           })
-async def kill_specific_individual(id: str):
+async def kill_specific_individual(id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
     # await ws_manager.kill(id)
-    r = await (supabase_client.table("bots")
-               .update({"completed": True})
-               .eq("id", id)
-               .execute()
-               )
-    return r
+    (__, bots_data_list), _ = await (supabase_client.table("bots")
+                                     .update({"completed": True})
+                                     .eq("id", id)
+                                     .execute()
+                                     )
+    endpoint = bots_data_list[0]["meta"]
+
+    await http_client.post(f"https://run.googleapis.com/v2/{endpoint}:cancel")
+
+    return True
 
 
 @app.post("/test/batch/kill/{id}",
@@ -408,12 +412,14 @@ async def kill_specific_individual(id: str):
           })
 async def kill_specific_batch(id: str):
     # await ws_manager.kill_group(id)
-    r = await (supabase_client.table("botgroups")
+    (__, botgroup_data_list), _  = await (supabase_client.table("botgroups")
                .update({"alive": 0})
                .eq("id", id)
                .execute()
                )
-    return r
+    endpoints = botgroup_data_list[0]['meta']
+    print(endpoints)
+    return True
 
 
 @app.post("/test/killall")
