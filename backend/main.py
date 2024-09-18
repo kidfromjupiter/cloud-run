@@ -127,12 +127,6 @@ async def bots_groups(user_id: str):
                       ).execute()
     return response
 
-
-@app.get("/", tags=["root"])
-async def root():
-    return {"message": "Hello World"}
-
-
 @app.post("/done/{user_id}/{bot_id}")
 async def done(user_id: str, bot_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
     (__, bot_data_list), _ = await supabase_client.table("bots").select("created_at, id").eq("id",
@@ -258,7 +252,7 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
             timeout=timeout,
             ws_link=ws_link,
             bot_name=names[i],
-            from_id=bot_id
+            from_id=user_id
             , bot_id=bot_id, group_id=bot_group_id)  # bot_id == bot_group_id
         print(names[i])
         for location in all_locs:
@@ -310,7 +304,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
         ws_link=request.ws_link,
         timeout=request.timeout,
         bot_name=request.name,
-        from_id=request.from_id,
+        from_id=request.user_id,
         bot_id=bot_id
     )
 
