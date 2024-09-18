@@ -102,27 +102,27 @@ async def websocket_endpoint(websocket: WebSocket, bot_id: str):
         print(f"Client #{bot_id} left the chat")
 
 
-@app.get("/test/bots/{bot_id}",
+@app.get("/test/bots/{user_id}",
          responses={
              200: {"model": ZoomResponse}
          })
-async def bots(bot_id: str):
+async def bots(user_id: str):
     response = await (supabase_client.table("bots")
                       .select("*")
-                      .eq("id", bot_id)
+                      .eq("user_id", user_id)
                       .eq("completed", False)
                       ).execute()
     return response
 
 
-@app.get("/test/groups/{group_id}",
+@app.get("/test/groups/{user_id}",
          responses={
              200: {"model": ZoomBatchResponse}
          })
-async def bots_groups(group_id: str):
+async def bots_groups(user_id: str):
     response = await (supabase_client.table("botgroups")
                       .select("*")
-                      .eq("id", group_id)
+                      .eq("id", user_id)
                       .gt("alive", 0)
                       ).execute()
     return response
