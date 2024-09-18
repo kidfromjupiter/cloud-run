@@ -33,6 +33,8 @@ if __name__ == '__main__':
         BASE_URL = 'https://backend-testing-514385437890.us-central1.run.app'
         BOT_ID = environ.get("BOT_ID")
         GROUP_ID = environ.get("GROUP_ID")
+        print("BOT_ID",BOT_ID)
+        print("GROUP_ID",GROUP_ID)
         if not GROUP_ID:
             requests.post(
                 f"{BASE_URL}/done/{BOT_ID}",
