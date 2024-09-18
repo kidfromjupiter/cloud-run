@@ -121,7 +121,7 @@ async def bots(user_id: str):
 async def bots_groups(user_id: str):
     response = await (supabase_client.table("botgroups")
                       .select("*")
-                      .eq("id", user_id)
+                      .eq("user_id", user_id)
                       .gt("alive", 0)
                       ).execute()
     return response
@@ -399,12 +399,24 @@ async def kill_specific_individual(id: str, http_client: aiohttp.ClientSession =
                                      .eq("id", id)
                                      .execute()
                                      )
-    print(bots_data_list)
     endpoint = bots_data_list[0]["meta"]
-    print(endpoint)
 
-    response = await http_client.post(f"https://run.googleapis.com/v2/{endpoint}:cancel")
-    print(response)
+    if environ.get("ENV") != "DEV":
+        # get cloud run access token
+        r = await http_client.post(
+            metadataUrl,
+            headers={
+                "Metadata-Flavor": "Google"
+            }
+        )
+        r_json = await r.json()
+        access_token = r_json['access_token']
+        await http_client.post(
+            f"https://run.googleapis.com/v2/{endpoint}:cancel",
+            headers={
+                'Authorization': f'Bearer {access_token}',
+            },
+        )
     return True
 
 
@@ -412,15 +424,33 @@ async def kill_specific_individual(id: str, http_client: aiohttp.ClientSession =
           responses={
               200: {"model": ZoomBatchResponse}
           })
-async def kill_specific_batch(id: str):
+async def kill_specific_batch(id: str,http_client: aiohttp.ClientSession = Depends(http_client)):
     # await ws_manager.kill_group(id)
-    (__, botgroup_data_list), _  = await (supabase_client.table("botgroups")
-               .update({"alive": 0})
-               .eq("id", id)
-               .execute()
-               )
+    (__, botgroup_data_list), _ = await (supabase_client.table("botgroups")
+                                         .update({"alive": 0})
+                                         .eq("id", id)
+                                         .execute()
+                                         )
     endpoints = botgroup_data_list[0]['meta']
     print(endpoints)
+
+    if environ.get("ENV") != "DEV":
+        # get cloud run access token
+        r = await http_client.post(
+            metadataUrl,
+            headers={
+                "Metadata-Flavor": "Google"
+            }
+        )
+        r_json = await r.json()
+        access_token = r_json['access_token']
+        for endpoint in endpoints:
+            await http_client.post(
+                f"https://run.googleapis.com/v2/{endpoint}:cancel",
+                headers={
+                    'Authorization': f'Bearer {access_token}',
+                },
+            )
     return True
 
 
