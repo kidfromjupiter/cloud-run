@@ -399,10 +399,12 @@ async def kill_specific_individual(id: str, http_client: aiohttp.ClientSession =
                                      .eq("id", id)
                                      .execute()
                                      )
+    print(bots_data_list)
     endpoint = bots_data_list[0]["meta"]
+    print(endpoint)
 
-    await http_client.post(f"https://run.googleapis.com/v2/{endpoint}:cancel")
-
+    response = await http_client.post(f"https://run.googleapis.com/v2/{endpoint}:cancel")
+    print(response)
     return True
 
 
