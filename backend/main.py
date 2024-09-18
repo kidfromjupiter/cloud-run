@@ -90,16 +90,16 @@ async def websocket_endpoint(websocket: WebSocket, bot_id: str):
         print(f"Client #{bot_id} left the chat")
 
 
-@app.websocket("/ws/group/{bot_id}")
-async def websocket_endpoint(websocket: WebSocket, bot_id: str):
-    await ws_manager.connect(websocket, bot_id)
-    print("Connected", bot_id)
+@app.websocket("/ws/group/{group_id}")
+async def websocket_endpoint(websocket: WebSocket, group_id: str):
+    await ws_manager.connect_group(websocket, group_id)
+    print("Connected bot in group", group_id)
     try:
         async for message in websocket.iter_json():
             print(message)
     except WebSocketDisconnect:
-        ws_manager.disconnect(bot_id)
-        print(f"Client #{bot_id} left the chat")
+        ws_manager.disconnect(group_id)
+        print(f"Client #{group_id} left the chat")
 
 
 @app.get("/test/bots/{user_id}",
@@ -202,10 +202,10 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
                                name_file: UploadFile,
                                group_name: Annotated[str, Form()],
                                http_client: aiohttp.ClientSession = Depends(http_client)):
-    bot_id = str(uuid.uuid4())
-    bot_group_id = bot_id
-    names = []
+    bot_group_id = str(uuid.uuid4())
+    bot_id = bot_group_id
     ws_link = f"wss://backend-testing-514385437890.us-central1.run.app/ws/{bot_group_id}"
+    names = []
     with name_file.file as f:
         for line in io.TextIOWrapper(f, encoding='utf-8'):
             names.append(line.rstrip())
@@ -403,7 +403,7 @@ async def kill_specific_individual(id: str):
               200: {"model": ZoomBatchResponse}
           })
 async def kill_specific_batch(id: str):
-    # TODO: add logic for killing specific botgroups
+    await ws_manager.kill_group(id)
     r = await (supabase_client.table("botgroups")
                .update({"alive": 0})
                .eq("id", id)

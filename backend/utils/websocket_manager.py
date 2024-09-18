@@ -10,8 +10,8 @@ class ConnectionManager:
         await websocket.accept()
         self.active_connections[id] = websocket
 
-    async def connect_group(self, websocket: WebSocket, id: str):
-        self.active_connections[id] = websocket
+    async def connect_group(self, websocket: WebSocket, group_id: str):
+        self.active_connections_groups[group_id].append(websocket)
 
     def disconnect(self, id: str):
         self.active_connections.pop(id)
@@ -23,6 +23,12 @@ class ConnectionManager:
         await self.active_connections[id].send_json({
             "kill": True
         })
+
+    async def kill_group(self, group_id: str):
+        for websocket in self.active_connections_groups[group_id]:
+            await websocket.send_json({
+                "kill": True
+            })
 
     async def broadcast(self, message: str):
         for connection in self.active_connections.values():
