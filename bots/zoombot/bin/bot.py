@@ -26,7 +26,7 @@ class ZoomBot(BotBase):
             self.exit_func()
             raise Exception("Meeting ended")
 
-    def join_meeting(self):
+    def join_meeting_and_wait(self):
         try:
             try:
                 meeting_id = re.search(r'(?<=wc/)\d+', self.meeting_id).group()

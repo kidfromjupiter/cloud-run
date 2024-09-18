@@ -65,7 +65,7 @@ class BotBase:
 
     def setup_ws(self):
         self.websocket.connect()
-        # self._loop() # Don't need this for now
+        self._loop() # Don't need this for now
 
     def _loop(self):
         while self.websocket.conn:
@@ -73,8 +73,6 @@ class BotBase:
             msg: dict = json.loads(message)
             if "kill" in msg.keys():
                 self.exit_func()
-            if "getStatus" in msg.keys():
-                self.websocket.send_status(self.last_status, self.bot_name, self.meeting_id)
 
     def exit_func(self):
         self.driver.quit()

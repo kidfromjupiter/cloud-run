@@ -8,7 +8,7 @@ from typing import Annotated
 import aiohttp
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, UploadFile, Form
+from fastapi import FastAPI, Depends, UploadFile, Form, WebSocketDisconnect, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import AClient, acreate_client
@@ -16,6 +16,7 @@ from supabase import AClient, acreate_client
 from utils.aiohttp_singleton import HttpClient
 from utils.models import MeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
     ZoomResponse, MalformedRequest, KillAllRequest
+from utils.websocket_manager import ConnectionManager
 
 load_dotenv(".env")
 
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
+ws_manager = ConnectionManager()
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
@@ -56,6 +58,8 @@ def create_payload(
         bot_name: str, ws_link: str,
         from_id: str, timeout: int,
         bot_id: str, group_id: str | None = None) -> dict:
+    
+    websocket_link = f"http://localhost:8000/ws/{bot_id}" if environ.get("DEV") else ws_link
     return {
         'overrides': {
             "containerOverrides": [
@@ -65,7 +69,7 @@ def create_payload(
                         {"name": "BOTNAME", "value": bot_name},
                         {"name": "TIMEOUT", "value": str(timeout)},
                         {"name": "BOT_ID", "value": bot_id},
-                        {"name": "WS_LINK", "value": ws_link},
+                        {"name": "WS_LINK", "value": websocket_link},
                         {"name": "FROM_ID", "value": from_id},
                         {"name": "GROUP_ID", "value": group_id},
                     ]
@@ -75,27 +79,50 @@ def create_payload(
     }
 
 
-@app.get("/test/bots/{user_id}",
+@app.websocket("/ws/{bot_id}")
+async def websocket_endpoint(websocket: WebSocket, bot_id: str):
+    await ws_manager.connect(websocket, bot_id)
+    print("Connected",bot_id)
+    try:
+        async for message in websocket.iter_json():
+            print(message)
+    except WebSocketDisconnect:
+        ws_manager.disconnect(bot_id)
+        print(f"Client #{bot_id} left the chat")
+        
+@app.websocket("/ws/group/{bot_id}")
+async def websocket_endpoint(websocket: WebSocket, bot_id: str):
+    await ws_manager.connect(websocket, bot_id)
+    print("Connected",bot_id)
+    try:
+        async for message in websocket.iter_json():
+            print(message)
+    except WebSocketDisconnect:
+        ws_manager.disconnect(bot_id)
+        print(f"Client #{bot_id} left the chat")
+
+
+@app.get("/test/bots/{bot_id}",
          responses={
              200: {"model": ZoomResponse}
          })
-async def bots(user_id: str):
+async def bots(bot_id: str):
     response = await (supabase_client.table("bots")
                       .select("*")
-                      .eq("user_id", user_id)
+                      .eq("id", bot_id)
                       .eq("completed", False)
                       ).execute()
     return response
 
 
-@app.get("/test/groups/{user_id}",
+@app.get("/test/groups/{group_id}",
          responses={
              200: {"model": ZoomBatchResponse}
          })
-async def bots_groups(user_id: str):
+async def bots_groups(group_id: str):
     response = await (supabase_client.table("botgroups")
                       .select("*")
-                      .eq("user_id", user_id)
+                      .eq("id", group_id)
                       .gt("alive", 0)
                       ).execute()
     return response
@@ -360,7 +387,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
               200: {"model": ZoomResponse}
           })
 async def kill_specific_individual(id: str):
-    # TODO: add logic for killing specific bots
+    await ws_manager.kill(id)
     r = await (supabase_client.table("bots")
                .update({"completed": True})
                .eq("id", id)

@@ -1,5 +1,6 @@
 import sys
 from os import environ
+from threading import Thread
 
 import requests
 
@@ -23,20 +24,23 @@ if __name__ == '__main__':
             from_id,
             group_id
         )
-        bot.join_meeting()
+        thread = Thread(target=bot.setup_ws, daemon=True)
+        thread.start()
+
+        bot.join_meeting_and_wait()
     except Exception as e:
         print("Error:", e)
         BASE_URL = 'https://backend-testing-514385437890.us-central1.run.app'
-        USER_ID = environ.get("FROM_ID")
         BOT_ID = environ.get("BOT_ID")
-        if not environ.get("GROUP_ID"):
+        GROUP_ID = environ.get("GROUP_ID")
+        if not GROUP_ID:
             requests.post(
-                f"{BASE_URL}/done/{USER_ID}/{BOT_ID}",
+                f"{BASE_URL}/done/{BOT_ID}",
             )
             print("Not in a group. Made a request after it quit")
         else:
             requests.post(
-                f"{BASE_URL}/done/group/{USER_ID}/{BOT_ID}",
+                f"{BASE_URL}/done/group/{GROUP_ID}",
             )
             print("In a group. Made a request after it quit")
 

@@ -15,10 +15,6 @@ class WebsocketConnection:
     def connect(self):
         self.conn = websockets.sync.client.connect(self.ws_link)
         self.connected = True
-        self.conn.send(json.dumps({
-            'event': "join-room",
-            'room': "room1"
-        }))
 
     def __ws_send(self, payload: dict):
         if self.conn is not None:
@@ -26,28 +22,3 @@ class WebsocketConnection:
             self.conn.send(json.dumps(payload))
             print("sent")
 
-    def send_status(self, last_status, bot_name, meeting_id):
-        payload = {
-            "fromId": str(self.from_id),
-            "toId": str(self.to_id),
-            "status": last_status,
-            "botName": bot_name,
-            "meetingLink": meeting_id,
-        }
-        self.__ws_send(payload)
-
-
-    def send_participants(self, participants: List[str]):
-        payload = {
-            "event": "participants",
-            "data": participants
-        }
-        print("in send participants")
-        self.__ws_send(payload)
-
-    def send_subject(self, subject: str):
-        payload = {
-            "event": "subject",
-            "data": subject
-        }
-        self.__ws_send(payload)
