@@ -266,8 +266,8 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
                     json=payload
                 )
                 response_json = await response.json()
+                print(response_json)
                 meta.append({
-                    "location": location.name,
                     "name": str(location.name)
                 })
                 response_list.append(response_json)
@@ -364,6 +364,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
                 json=payload
             )
             response_json = await response.json()
+            print(response_json)
             name = response_json['name']
         location.value = location.value + 1
         location.last_modified = datetime.now(tz=timezone.utc).isoformat()
@@ -377,7 +378,6 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
             "id": bot_id,
             "name": request.name,
             "meta": ({
-                "location": str(location.name),
                 "name": name
             })
         }).execute()
