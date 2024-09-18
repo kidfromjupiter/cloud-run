@@ -58,7 +58,6 @@ def create_payload(
         bot_name: str, ws_link: str,
         from_id: str, timeout: int,
         bot_id: str, group_id: str | None = None) -> dict:
-    
     websocket_link = f"http://localhost:8000/ws/{bot_id}" if environ.get("DEV") else ws_link
     return {
         'overrides': {
@@ -82,18 +81,19 @@ def create_payload(
 @app.websocket("/ws/{bot_id}")
 async def websocket_endpoint(websocket: WebSocket, bot_id: str):
     await ws_manager.connect(websocket, bot_id)
-    print("Connected",bot_id)
+    print("Connected", bot_id)
     try:
         async for message in websocket.iter_json():
             print(message)
     except WebSocketDisconnect:
         ws_manager.disconnect(bot_id)
         print(f"Client #{bot_id} left the chat")
-        
+
+
 @app.websocket("/ws/group/{bot_id}")
 async def websocket_endpoint(websocket: WebSocket, bot_id: str):
     await ws_manager.connect(websocket, bot_id)
-    print("Connected",bot_id)
+    print("Connected", bot_id)
     try:
         async for message in websocket.iter_json():
             print(message)
@@ -205,6 +205,7 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
     bot_id = str(uuid.uuid4())
     bot_group_id = bot_id
     names = []
+    ws_link = f"wss://backend-testing-514385437890.us-central1.run.app/ws/{bot_group_id}"
     with name_file.file as f:
         for line in io.TextIOWrapper(f, encoding='utf-8'):
             names.append(line.rstrip())
@@ -258,7 +259,7 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
             ws_link=ws_link,
             bot_name=names[i],
             from_id=bot_id
-            , bot_id=bot_id, group_id=bot_group_id)
+            , bot_id=bot_id, group_id=bot_group_id)  # bot_id == bot_group_id
         print(names[i])
         for location in all_locs:
             val = location.value
@@ -303,6 +304,7 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
           })
 async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSession = Depends(http_client)):
     bot_id = str(uuid.uuid4())
+    request.ws_link = f"wss://backend-testing-514385437890.us-central1.run.app/ws/{bot_id}"
     payload = create_payload(
         meeting_url=request.meeting_url,
         ws_link=request.ws_link,

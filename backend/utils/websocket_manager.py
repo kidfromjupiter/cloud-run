@@ -9,7 +9,7 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket, id: str):
         await websocket.accept()
         self.active_connections[id] = websocket
-        
+
     async def connect_group(self, websocket: WebSocket, id: str):
         self.active_connections[id] = websocket
 
