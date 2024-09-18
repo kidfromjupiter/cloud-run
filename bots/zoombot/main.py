@@ -35,6 +35,7 @@ if __name__ == '__main__':
         GROUP_ID = environ.get("GROUP_ID")
         print("BOT_ID",BOT_ID)
         print("GROUP_ID",GROUP_ID)
+        print("TEST")
         if not GROUP_ID:
             requests.post(
                 f"{BASE_URL}/done/{BOT_ID}",
