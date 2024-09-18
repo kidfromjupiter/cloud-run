@@ -24,8 +24,8 @@ if __name__ == '__main__':
             from_id,
             group_id
         )
-        thread = Thread(target=bot.setup_ws, daemon=True)
-        thread.start()
+        # thread = Thread(target=bot.setup_ws, daemon=True)
+        # thread.start()
 
         bot.join_meeting_and_wait()
     except Exception as e:
