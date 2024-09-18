@@ -8,7 +8,7 @@ from typing import Annotated
 import aiohttp
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, UploadFile, Form, WebSocketDisconnect, WebSocket
+from fastapi import FastAPI, Depends, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from supabase import AClient, acreate_client
@@ -16,7 +16,6 @@ from supabase import AClient, acreate_client
 from utils.aiohttp_singleton import HttpClient
 from utils.models import MeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
     ZoomResponse, MalformedRequest, KillAllRequest
-from utils.websocket_manager import ConnectionManager
 
 load_dotenv(".env")
 
@@ -35,7 +34,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-ws_manager = ConnectionManager()
+# ws_manager = ConnectionManager()
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
@@ -78,28 +77,28 @@ def create_payload(
     }
 
 
-@app.websocket("/ws/{bot_id}")
-async def websocket_endpoint(websocket: WebSocket, bot_id: str):
-    await ws_manager.connect(websocket, bot_id)
-    print("Connected", bot_id)
-    try:
-        async for message in websocket.iter_json():
-            print(message)
-    except WebSocketDisconnect:
-        ws_manager.disconnect(bot_id)
-        print(f"Client #{bot_id} left the chat")
-
-
-@app.websocket("/ws/group/{group_id}")
-async def websocket_endpoint(websocket: WebSocket, group_id: str):
-    await ws_manager.connect_group(websocket, group_id)
-    print("Connected bot in group", group_id)
-    try:
-        async for message in websocket.iter_json():
-            print(message)
-    except WebSocketDisconnect:
-        ws_manager.disconnect(group_id)
-        print(f"Client #{group_id} left the chat")
+# @app.websocket("/ws/{bot_id}")
+# async def websocket_endpoint(websocket: WebSocket, bot_id: str):
+#     await ws_manager.connect(websocket, bot_id)
+#     print("Connected", bot_id)
+#     try:
+#         async for message in websocket.iter_json():
+#             print(message)
+#     except WebSocketDisconnect:
+#         ws_manager.disconnect(bot_id)
+#         print(f"Client #{bot_id} left the chat")
+# 
+# 
+# @app.websocket("/ws/group/{group_id}")
+# async def websocket_endpoint(websocket: WebSocket, group_id: str):
+#     await ws_manager.connect_group(websocket, group_id)
+#     print("Connected bot in group", group_id)
+#     try:
+#         async for message in websocket.iter_json():
+#             print(message)
+#     except WebSocketDisconnect:
+#         ws_manager.disconnect(group_id)
+#         print(f"Client #{group_id} left the chat")
 
 
 @app.get("/test/bots/{user_id}",
@@ -126,6 +125,7 @@ async def bots_groups(user_id: str):
                       .gt("alive", 0)
                       ).execute()
     return response
+
 
 @app.post("/done/{user_id}/{bot_id}")
 async def done(user_id: str, bot_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
@@ -228,17 +228,6 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
         json = await r.json()
         access_token = json['access_token']
 
-    # create entry in bot groups table
-    supabase_response = await supabase_client.schema("public").table('botgroups').insert({
-        "meeting_url": meeting_url,
-        "timeout": timeout,
-        "number": number_of_bots,
-        "alive": number_of_bots,
-        "user_id": user_id,
-        "id": bot_group_id,
-        "name": group_name
-    }).execute()
-
     # send requests to google cloud run to start jobs
     response_list = []
     changed_rows = []
@@ -246,6 +235,7 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
                            .select('name,last_modified,value')
                            .execute())
     all_locs = [Location(**loc) for loc in data[1]]
+    meta = []
     for i in range(number_of_bots):
         payload = create_payload(
             meeting_url=meeting_url,
@@ -276,12 +266,29 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
                     json=payload
                 )
                 response_json = await response.json()
+                meta.append({
+                    "location": location.name,
+                    "name": str(location.name)
+                })
                 response_list.append(response_json)
             location.value = location.value + 1
             location.last_modified = datetime.now(tz=timezone.utc).isoformat()
             if location not in changed_rows: changed_rows.append(location)
 
             break
+
+    # create entry in bot groups table
+    supabase_response = await supabase_client.schema("public").table('botgroups').insert({
+        "meeting_url": meeting_url,
+        "timeout": timeout,
+        "number": number_of_bots,
+        "alive": number_of_bots,
+        "user_id": user_id,
+        "id": bot_group_id,
+        "name": group_name,
+        "meta": meta,
+    }).execute()
+
     if changed_rows:
         await supabase_client.table('locations').upsert(
             [l.model_dump() for l in changed_rows],
@@ -325,17 +332,8 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
                 "Metadata-Flavor": "Google"
             }
         )
-        json = await r.json()
-        access_token = json['access_token']
-
-    # create entry in bots table
-    supabase_response = await supabase_client.schema("public").table('bots').insert({
-        "meeting_url": request.meeting_url,
-        "timeout": request.timeout,
-        "user_id": request.user_id,
-        "id": bot_id,
-        "name": request.name
-    }).execute()
+        r_json = await r.json()
+        access_token = r_json['access_token']
 
     # send reqeust to google cloud run to start the job
     return_data = None
@@ -356,6 +354,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
                 print("switched to another location")
                 # endpoint will hit rate limit if another request is made. So switch to another loc
                 continue
+        name = "test"
         if environ.get("ENV") != "DEV":
             response = await http_client.post(
                 getStartUrl(str(location.name)),
@@ -364,11 +363,27 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
                 },
                 json=payload
             )
+            response_json = await response.json()
+            name = response_json['name']
         location.value = location.value + 1
         location.last_modified = datetime.now(tz=timezone.utc).isoformat()
         if location not in changed_rows: changed_rows.append(location)
 
+        # create entry in bots table
+        supabase_response = await supabase_client.schema("public").table('bots').insert({
+            "meeting_url": request.meeting_url,
+            "timeout": request.timeout,
+            "user_id": request.user_id,
+            "id": bot_id,
+            "name": request.name,
+            "meta": ({
+                "location": str(location.name),
+                "name": name
+            })
+        }).execute()
+
         break
+
     if changed_rows:
         await supabase_client.table('locations').upsert(
             [l.model_dump() for l in changed_rows],
@@ -383,7 +398,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
               200: {"model": ZoomResponse}
           })
 async def kill_specific_individual(id: str):
-    await ws_manager.kill(id)
+    # await ws_manager.kill(id)
     r = await (supabase_client.table("bots")
                .update({"completed": True})
                .eq("id", id)
@@ -397,7 +412,7 @@ async def kill_specific_individual(id: str):
               200: {"model": ZoomBatchResponse}
           })
 async def kill_specific_batch(id: str):
-    await ws_manager.kill_group(id)
+    # await ws_manager.kill_group(id)
     r = await (supabase_client.table("botgroups")
                .update({"alive": 0})
                .eq("id", id)
