@@ -114,6 +114,34 @@ async def bots(user_id: str):
     return response
 
 
+@app.get("/test/current_usage/{user_id}")
+async def current_usage(user_id: str):
+    (__, botgroups_list), _ = await (supabase_client.table("botgroups")
+                                     .select("alive")
+                                     .eq("user_id", f'{user_id}')
+                                     .gt("alive", 0)
+                                     .execute())
+    (__, _), (___, count) = await (supabase_client.table("bots")
+                                   .select("*", count='exact')
+                                   .eq("user_id", f'{user_id}')
+                                   .eq("completed", False)
+                                   .execute())
+    total_alive_in_botgroups = count
+    for botgroup in botgroups_list:
+        total_alive_in_botgroups += int(botgroup['alive'])
+
+    return total_alive_in_botgroups
+
+
+@app.get("/test/credits/{user_id}")
+async def credits(user_id: str):
+    (__, profile_data), _ = await (supabase_client.table("profiles")
+                                   .select("credits")
+                                   .eq("user_id", f'{user_id}')
+                                   .execute())
+    return profile_data[0]['credits']
+
+
 @app.get("/test/groups/{user_id}",
          responses={
              200: {"model": ZoomBatchResponse}
@@ -424,7 +452,7 @@ async def kill_specific_individual(id: str, http_client: aiohttp.ClientSession =
           responses={
               200: {"model": ZoomBatchResponse}
           })
-async def kill_specific_batch(id: str,http_client: aiohttp.ClientSession = Depends(http_client)):
+async def kill_specific_batch(id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
     # await ws_manager.kill_group(id)
     (__, botgroup_data_list), _ = await (supabase_client.table("botgroups")
                                          .update({"alive": 0})
