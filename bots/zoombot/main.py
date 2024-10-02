@@ -9,12 +9,14 @@ from bin.bot import ZoomBot
 if __name__ == '__main__':
     try:
         meeting_url = environ.get("MEETING_URL")
+        password = environ.get("PASSWORD")
         bot_name = environ.get("BOTNAME")
         timeout = int(environ.get("TIMEOUT"))
         bot_id = environ.get("BOT_ID")
         from_id = environ.get("FROM_ID")
         ws_link = environ.get("WS_LINK")
         group_id = environ.get("GROUP_ID")
+        webinar = environ.get("WEBINAR")
         bot = ZoomBot(
             ws_link,
             meeting_url,
@@ -22,7 +24,9 @@ if __name__ == '__main__':
             timeout,
             bot_id,
             from_id,
-            group_id
+            group_id,
+            password,
+            webinar 
         )
         # thread = Thread(target=bot.setup_ws, daemon=True)
         # thread.start()

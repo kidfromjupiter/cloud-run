@@ -10,7 +10,7 @@ from .ws_manager import WebsocketConnection
 
 
 class BotBase:
-    def __init__(self, ws_link, meeting_id, bot_name, timeout, bot_id, to_id, group_id):
+    def __init__(self, ws_link, meeting_id, bot_name, timeout, bot_id, to_id, group_id, password=None, webinar=None):
         self.timer = None
         self.timer_running = False
         self.ws_link = ws_link
@@ -18,7 +18,7 @@ class BotBase:
         self.to_id = to_id
         self.websocket = WebsocketConnection(self.ws_link, self.from_id, self.to_id)
         self.participant_list = []
-        self.meeting_id = meeting_id
+        self.meeting_url = meeting_id
         self.timer = None
         self.bot_name = bot_name
         self.timer_running = False
@@ -26,6 +26,8 @@ class BotBase:
         self.last_status = "Bot started"
         self.group_id = group_id
         self.started_time = datetime.now()
+        self.password = password
+        self.webinar = webinar
         # Create Chrome instance
 
         opt = Options()

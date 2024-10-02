@@ -15,8 +15,8 @@ POLL_RATE = 0.5
 
 
 class ZoomBot(BotBase):
-    def __init__(self, ws_link, meeting_id, botName, timeout, bot_id, to_id, group_id):
-        super().__init__(ws_link, meeting_id, botName, timeout, bot_id, to_id, group_id)
+    def __init__(self, ws_link, meeting_url, botName, timeout, bot_id, to_id, group_id, password, webinar):
+        super().__init__(ws_link, meeting_url, botName, timeout, bot_id, to_id, group_id, password, webinar)
 
     def termination_check(self):
         self.driver.implicitly_wait(0.2)
@@ -26,47 +26,59 @@ class ZoomBot(BotBase):
             self.exit_func()
             raise Exception("Meeting ended")
 
-    def join_meeting_and_wait(self):
+    def __pw_in_link_login_flow(self, meeting_id: str, password: str):
+        self.driver.get(f"https://app.zoom.us/wc/{meeting_id}/join?pwd={password}")
+
+        print("in meeting page")
+        self.driver.maximize_window()
         try:
-            try:
-                meeting_id = re.search(r'(?<=wc/)\d+', self.meeting_id).group()
-            except:
-                meeting_id = re.search(r'(?<=j/)\d+', self.meeting_id).group()
-            password = re.search(r'(?<=pwd=)[^&]*', self.meeting_id).group()
-
-            self.driver.get(f"https://app.zoom.us/wc/{meeting_id}/join?pwd={password}")
-
-            print("in meeting page")
-            self.driver.maximize_window()
-            try:
-                self.driver.implicitly_wait(10)
-                self.driver.find_element(By.XPATH, "//button[@id='onetrust-accept-btn-handler']").click()
-
-                self.driver.find_element(By.XPATH, '//button[@id="wc_agree1"]').click()
-            except:
-                pass
-
-            self.driver.implicitly_wait(60)
-            self.driver.find_element(By.ID, 'input-for-name').send_keys(self.bot_name)
-            print("input name")
-
             self.driver.implicitly_wait(10)
-            join_button = self.driver.find_element(By.XPATH, '//button[contains(@class, "preview-join-button")]')
+            self.driver.find_element(By.XPATH, "//button[@id='onetrust-accept-btn-handler']").click()
 
-            # Click the join button
-            sleep(5)
-            join_button.click()
-            self.last_status = "In wait room or joining"
-            print("in wait room or joining")
+            self.driver.find_element(By.XPATH, '//button[@id="wc_agree1"]').click()
+        except:
+            pass
 
-            # waiting till joined
-            # Wait for the SVG with class "SvgShare" to appear
-            self.driver.implicitly_wait(WAIT_ADMIT_TIME)
+        self.driver.implicitly_wait(60)
+        self.driver.find_element(By.ID, 'input-for-name').send_keys(self.bot_name)
+        print("input name")
+
+        self.driver.implicitly_wait(0)
+        try:
+            email_field = WebDriverWait(self.driver, 2).until(
+                EC.presence_of_element_located((By.XPATH, '//input[@id="input-for-email"]'))
+            )
+            email_field.send_keys("test@test.mail")
+        except:
+            pass
+
+        self.driver.implicitly_wait(10)
+        join_button = self.driver.find_element(By.XPATH, '//button[contains(@class, "preview-join-button")]')
+
+        # Click the join button
+        sleep(5)
+        join_button.click()
+        self.last_status = "In wait room or joining"
+        print("in wait room or joining")
+
+    def __in_meeting_flow(self):
+        # waiting till joined
+        # Wait for the SVG with class "SvgShare" to appear
+        self.driver.implicitly_wait(WAIT_ADMIT_TIME)
+        if not self.webinar:
             self.driver.find_element(By.CLASS_NAME, 'SvgShare')
             self.last_status = "Joined meeting"
+            print("In meeting")
+
+            self.started_time = datetime.now()
+        else:
+            self.driver.find_element(By.XPATH, "//span[text()='Leave']")
+            self.last_status = "Joined meeting"
+            print("In meeting")
 
             self.started_time = datetime.now()
 
+        if not self.webinar:
             # Wait for the element with text "Join Audio by Computer" to appear
             join_audio_button = WebDriverWait(self.driver, 60).until(
                 EC.presence_of_element_located((By.XPATH, '//*[text()="Join Audio by Computer"]'))
@@ -95,6 +107,60 @@ class ZoomBot(BotBase):
 
             # Click the stop video button
             stop_video_button.click()
+
+    def __pw_separate_flow(self, password: str, meeting_id: str):
+        self.driver.get(f"https://app.zoom.us/wc/{meeting_id}/join")
+
+        print("in meeting page")
+        self.driver.maximize_window()
+        try:
+            self.driver.implicitly_wait(10)
+            self.driver.find_element(By.XPATH, "//button[@id='onetrust-accept-btn-handler']").click()
+
+            self.driver.find_element(By.XPATH, '//button[@id="wc_agree1"]').click()
+        except:
+            pass
+
+        self.driver.implicitly_wait(60)
+        self.driver.find_element(By.ID, 'input-for-name').send_keys(self.bot_name)
+        print("input name")
+
+        self.driver.implicitly_wait(0)
+        try:
+            email_field = WebDriverWait(self.driver, 2).until(
+                EC.presence_of_element_located((By.XPATH, '//input[@id="input-for-email"]'))
+            )
+            email_field.send_keys("test@test.mail")
+        except:
+            pass
+
+        self.driver.implicitly_wait(10)
+        self.driver.find_element(By.ID, 'input-for-pwd').send_keys(password)
+
+        self.driver.implicitly_wait(10)
+        join_button = self.driver.find_element(By.XPATH, '//button[contains(@class, "preview-join-button")]')
+
+        # Click the join button
+        sleep(5)
+        join_button.click()
+        self.last_status = "In wait room or joining"
+        print("in wait room or joining")
+
+    def join_meeting_and_wait(self):
+        try:
+            try:
+                meeting_id = re.search(r'(?<=wc/)\d+', self.meeting_url).group()
+            except:
+                meeting_id = re.search(r'(?<=j/)\d+', self.meeting_url).group()
+
+            if self.password:
+                password = self.password
+                self.__pw_separate_flow(password, meeting_id)
+            else:
+                password = re.search(r'(?<=pwd=)[^&]*', self.meeting_url).group()
+                self.__pw_in_link_login_flow(meeting_id, password)
+
+            self.__in_meeting_flow()
 
             # main event loop
             while True:
