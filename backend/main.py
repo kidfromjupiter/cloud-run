@@ -3,7 +3,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from os import environ
-from typing import Annotated
+from typing import Annotated, Optional
 
 import aiohttp
 import uvicorn
@@ -56,7 +56,11 @@ def create_payload(
         meeting_url: str,
         bot_name: str, ws_link: str,
         from_id: str, timeout: int,
-        bot_id: str, group_id: str | None = None) -> dict:
+        bot_id: str, group_id: str | None = None,
+        password: str | None = None,
+        webinar: bool | None = None,
+        
+) -> dict:
     websocket_link = f"http://localhost:8000/ws/{bot_id}" if environ.get("DEV") else ws_link
     return {
         'overrides': {
@@ -70,6 +74,8 @@ def create_payload(
                         {"name": "WS_LINK", "value": websocket_link},
                         {"name": "FROM_ID", "value": from_id},
                         {"name": "GROUP_ID", "value": group_id},
+                        {"name": "PASSWORD", "value": password},
+                        {"name": "WEBINAR", "value": webinar},
                     ]
                 }
             ]
@@ -223,7 +229,10 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
                                ws_link: Annotated[str, Form()],
                                name_file: UploadFile,
                                group_name: Annotated[str, Form()],
-                               http_client: aiohttp.ClientSession = Depends(http_client)):
+                               http_client: aiohttp.ClientSession = Depends(http_client),
+                               password: Annotated[Optional[str], Form()] = None,
+                               webinar: Annotated[Optional[bool], Form()] = None,
+                               ):
     bot_group_id = str(uuid.uuid4())
     bot_id = bot_group_id
     ws_link = f"wss://backend-testing-514385437890.us-central1.run.app/ws/{bot_group_id}"
@@ -270,8 +279,12 @@ async def launch_batch_zoombot(timeout: Annotated[int, Form()],
             timeout=timeout,
             ws_link=ws_link,
             bot_name=names[i],
-            from_id=user_id
-            , bot_id=bot_id, group_id=bot_group_id)  # bot_id == bot_group_id
+            from_id=user_id,
+            bot_id=bot_id,
+            group_id=bot_group_id,
+            password=password,
+            webinar=webinar,
+        )  # bot_id == bot_group_id
         print(names[i])
         for location in all_locs:
             val = location.value
