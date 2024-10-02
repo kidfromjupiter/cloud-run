@@ -75,7 +75,7 @@ def create_payload(
                         {"name": "FROM_ID", "value": from_id},
                         {"name": "GROUP_ID", "value": group_id},
                         {"name": "PASSWORD", "value": password},
-                        {"name": "WEBINAR", "value": webinar},
+                        {"name": "WEBINAR", "value": str(webinar)},
                     ]
                 }
             ]
