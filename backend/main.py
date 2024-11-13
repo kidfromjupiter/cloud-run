@@ -20,7 +20,7 @@ from utils.models import MeetingRequest, Location, InsufficientFunds, ZoomBatchR
 
 load_dotenv(".env")
 
-lg.basicConfig(level=lg.INFO, filename="/var/log/py.log", filemode="w")
+# lg.basicConfig(level=lg.INFO, filename="/var/log/py.log", filemode="w")
 
 http_client = HttpClient()
 supabase_client: AClient = None
@@ -505,8 +505,10 @@ async def cancelled_bot(request: EventArcRequest):
     lg.info(request.json())
     print(request.json())
 
-    (_, cancelled_bots_list) = await (
+    (cancelled_bots_list, _) = await (
         supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
+    
+    cancelled_bots_list = cancelled_bots_list[1]
 
     id = cancelled_bots_list[0]['id']
     user_id = cancelled_bots_list[0]['user_id']
