@@ -505,6 +505,8 @@ async def cancelled_bot(request: EventArcRequest):
     lg.info(request.json())
     print(request.json())
 
+    response = await (supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
+    print(response)
 
 @app.post("/test/killall")
 async def kill_all(request: KillAllRequest):
