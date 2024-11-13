@@ -439,7 +439,7 @@ async def launch_zoombot(request: MeetingRequest, http_client: aiohttp.ClientSes
 async def kill_specific_individual(id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
     # await ws_manager.kill(id)
     (__, bots_data_list), _ = await (supabase_client.table("bots")
-                                     .update({"completed": True})
+                                     .select("*")
                                      .eq("id", id)
                                      .execute()
                                      )
@@ -471,7 +471,7 @@ async def kill_specific_individual(id: str, http_client: aiohttp.ClientSession =
 async def kill_specific_batch(id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
     # await ws_manager.kill_group(id)
     (__, botgroup_data_list), _ = await (supabase_client.table("botgroups")
-                                         .update({"alive": 0})
+                                         .select("*")
                                          .eq("id", id)
                                          .execute()
                                          )
@@ -505,8 +505,11 @@ async def cancelled_bot(request: EventArcRequest):
     lg.info(request.json())
     print(request.json())
 
-    response = await (supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
+    response = await (
+        supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
+    
     print(response)
+
 
 @app.post("/test/killall")
 async def kill_all(request: KillAllRequest):
