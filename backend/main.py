@@ -505,10 +505,39 @@ async def cancelled_bot(request: EventArcRequest):
     lg.info(request.json())
     print(request.json())
 
-    response = await (
+    (cancelled_bots_list, _) = await (
         supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
-    
-    print(response)
+
+    id = cancelled_bots_list[0]['id']
+    user_id = cancelled_bots_list[0]['user_id']
+    source_table = cancelled_bots_list[0]['source_table']
+
+    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
+                                                                                                       f'{user_id}').execute()
+
+    # calculating leftover credits
+    credit = profile_data_list[0]["credits"]
+    started_time = datetime.fromisoformat(cancelled_bots_list[0]["created_at"])
+    time_now = datetime.now(timezone.utc)
+    delta = time_now - started_time
+    used_creds = delta.seconds // 60
+
+    credit = max(0, credit - used_creds)
+
+    updated_credit_data, _ = await supabase_client.table("profiles").update({"credits": credit}).eq("user_id",
+                                                                                                    f"{user_id}").execute()
+    if source_table == "bots":
+        updated_bot_data, _ = await (supabase_client.table("bots").update({"completed": True})
+                                     .eq("id", f"{id}")
+                                     .eq("user_id", f"{user_id}")
+                                     .execute())
+    elif source_table == "botgroups":
+        updated_bot_data, _ = await (supabase_client.table("botgroups").update({"alive": 0})
+                                     .eq("id", f"{id}")
+                                     .eq("user_id", f"{user_id}")
+                                     .execute())
+
+    return True
 
 
 @app.post("/test/killall")
