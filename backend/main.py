@@ -1,4 +1,5 @@
 import io
+import logging as lg
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -15,9 +16,11 @@ from supabase import AClient, acreate_client
 
 from utils.aiohttp_singleton import HttpClient
 from utils.models import MeetingRequest, Location, InsufficientFunds, ZoomBatchResponse, \
-    ZoomResponse, MalformedRequest, KillAllRequest
+    ZoomResponse, MalformedRequest, KillAllRequest, EventArcRequest
 
 load_dotenv(".env")
+
+lg.basicConfig(level=lg.INFO, filename="/var/log/py.log", filemode="w")
 
 http_client = HttpClient()
 supabase_client: AClient = None
@@ -59,7 +62,7 @@ def create_payload(
         bot_id: str, group_id: str | None = None,
         password: str | None = None,
         webinar: bool | None = None,
-        
+
 ) -> dict:
     websocket_link = f"http://localhost:8000/ws/{bot_id}" if environ.get("DEV") else ws_link
     return {
@@ -493,6 +496,12 @@ async def kill_specific_batch(id: str, http_client: aiohttp.ClientSession = Depe
                 },
             )
     return True
+
+
+@app.post("/eventarc/bot-cancelled")
+async def cancelled_bot(request: EventArcRequest):
+    lg.info("Got cancelled event")
+    lg.info(request.json())
 
 
 @app.post("/test/killall")

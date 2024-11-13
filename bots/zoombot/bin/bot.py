@@ -166,6 +166,7 @@ class ZoomBot(BotBase):
             self.__in_meeting_flow()
 
             # main event loop
+            lg.info("Started main event loop")
             while True:
                 now = datetime.now()
                 time_difference = now - self.started_time

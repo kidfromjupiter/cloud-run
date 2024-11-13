@@ -57,5 +57,17 @@ class ZoomResponse(BaseModel):
     data: list[ZoomSBResponse]
     count: None | int
 
+
 class KillAllRequest(BaseModel):
     user_id: str
+
+
+class ProtoPayload(BaseModel):
+    resourceName: str
+
+
+class EventArcRequest(BaseModel):
+    insertId: str
+    protoPayload: ProtoPayload
+    timestamp: str
+    resource: dict[str, any]
