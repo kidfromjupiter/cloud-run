@@ -501,7 +501,9 @@ async def kill_specific_batch(id: str, http_client: aiohttp.ClientSession = Depe
 @app.post("/eventarc/bot-cancelled")
 async def cancelled_bot(request: EventArcRequest):
     lg.info("Got cancelled event")
+    print("Got cancelled event")
     lg.info(request.json())
+    print(request.json())
 
 
 @app.post("/test/killall")
