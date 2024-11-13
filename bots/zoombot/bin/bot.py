@@ -10,7 +10,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from .botbase import BotBase
 
 lg.basicConfig(level=lg.INFO, filename="/var/log/py.log", filemode="w")
-WAIT_ADMIT_TIME = 120
+WAIT_ADMIT_TIME = 800
 POLL_RATE = 0.5
 
 
