@@ -35,6 +35,7 @@ class BotBase:
         opt.add_argument('--no-sandbox')
         opt.add_argument('--start-maximized')
         opt.add_argument('--headless')
+        opt.add_argument('--use-fake-device-for-media-stream')
 
         opt.add_experimental_option("prefs", {
             "profile.default_content_setting_values.media_stream_mic": 1,
