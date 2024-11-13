@@ -9,13 +9,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from .botbase import BotBase
 
-lg.basicConfig(level=lg.DEBUG, filename="/var/log/py.log", filemode="w")
+lg.basicConfig(level=lg.INFO, filename="/var/log/py.log", filemode="w")
 WAIT_ADMIT_TIME = 120
 POLL_RATE = 0.5
 
 
 class ZoomBot(BotBase):
     def __init__(self, ws_link, meeting_url, botName, timeout, bot_id, to_id, group_id, password, webinar):
+        lg.info(f"Is a webinar? {webinar}")
         super().__init__(ws_link, meeting_url, botName, timeout, bot_id, to_id, group_id, password, webinar)
 
     def termination_check(self):
