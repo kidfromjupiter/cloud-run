@@ -1,5 +1,5 @@
 import io
-# import logging as lg
+import logging as lg
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -20,7 +20,7 @@ from utils.models import MeetingRequest, Location, InsufficientFunds, ZoomBatchR
 
 load_dotenv(".env")
 
-# lg.basicConfig(level=lg.INFO, filename="/var/log/py.log", filemode="w")
+lg.basicConfig(level=lg.INFO, filename="/var/log/py.log", filemode="w")
 
 http_client = HttpClient()
 supabase_client: AClient = None
@@ -500,8 +500,8 @@ async def kill_specific_batch(id: str, http_client: aiohttp.ClientSession = Depe
 
 @app.post("/eventarc/bot-cancelled")
 async def cancelled_bot(request: EventArcRequest):
-    print("Got cancelled event")
-    print(request.json())
+    lg.info("Got cancelled event")
+    lg.info(request.json())
 
 
 @app.post("/test/killall")

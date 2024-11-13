@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Extra
 
 
 class MeetingRequest(BaseModel):
@@ -70,4 +70,6 @@ class EventArcRequest(BaseModel):
     insertId: str
     protoPayload: ProtoPayload
     timestamp: str
-    resource: dict[str, any]
+    
+    class Config:
+        extra = Extra.allow
