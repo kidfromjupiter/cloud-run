@@ -9,7 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from .botbase import BotBase
 
-lg.basicConfig(level=lg.DEBUG, filename="py_log.log", filemode="w")
+lg.basicConfig(level=lg.DEBUG, filename="/var/log/py.log", filemode="w")
 WAIT_ADMIT_TIME = 120
 POLL_RATE = 0.5
 
@@ -29,7 +29,7 @@ class ZoomBot(BotBase):
     def __pw_in_link_login_flow(self, meeting_id: str, password: str):
         self.driver.get(f"https://app.zoom.us/wc/{meeting_id}/join?pwd={password}")
 
-        print("in meeting page")
+        lg.info("in meeting page")
         self.driver.maximize_window()
         try:
             self.driver.implicitly_wait(10)
@@ -41,7 +41,7 @@ class ZoomBot(BotBase):
 
         self.driver.implicitly_wait(60)
         self.driver.find_element(By.ID, 'input-for-name').send_keys(self.bot_name)
-        print("input name")
+        lg.info("input name")
 
         self.driver.implicitly_wait(0)
         try:
@@ -59,7 +59,7 @@ class ZoomBot(BotBase):
         sleep(5)
         join_button.click()
         self.last_status = "In wait room or joining"
-        print("in wait room or joining")
+        lg.info("in wait room or joining")
 
     def __in_meeting_flow(self):
         # waiting till joined
@@ -68,13 +68,13 @@ class ZoomBot(BotBase):
         if not self.webinar:
             self.driver.find_element(By.CLASS_NAME, 'SvgShare')
             self.last_status = "Joined meeting"
-            print("In meeting")
+            lg.info("In meeting")
 
             self.started_time = datetime.now()
         else:
             self.driver.find_element(By.XPATH, "//span[text()='Leave']")
             self.last_status = "Joined meeting"
-            print("In meeting")
+            lg.info("In meeting")
 
             self.started_time = datetime.now()
 
@@ -111,7 +111,7 @@ class ZoomBot(BotBase):
     def __pw_separate_flow(self, password: str, meeting_id: str):
         self.driver.get(f"https://app.zoom.us/wc/{meeting_id}/join")
 
-        print("in meeting page")
+        lg.info("in meeting page")
         self.driver.maximize_window()
         try:
             self.driver.implicitly_wait(10)
@@ -123,7 +123,7 @@ class ZoomBot(BotBase):
 
         self.driver.implicitly_wait(60)
         self.driver.find_element(By.ID, 'input-for-name').send_keys(self.bot_name)
-        print("input name")
+        lg.info("input name")
 
         self.driver.implicitly_wait(0)
         try:
@@ -144,7 +144,7 @@ class ZoomBot(BotBase):
         sleep(5)
         join_button.click()
         self.last_status = "In wait room or joining"
-        print("in wait room or joining")
+        lg.info("in wait room or joining")
 
     def join_meeting_and_wait(self):
         try:
@@ -167,11 +167,11 @@ class ZoomBot(BotBase):
                 now = datetime.now()
                 time_difference = now - self.started_time
                 if time_difference.total_seconds() > self.timeout:
-                    print("quitting, time diff:", time_difference.total_seconds())
+                    lg.info("quitting, time diff:", time_difference.total_seconds())
                     raise Exception("Timeout Reached")
                 self.termination_check()
                 sleep(POLL_RATE)
 
         except Exception as e:
-            print(e)
+            lg.error(e)
             raise Exception("Internal bot error")
