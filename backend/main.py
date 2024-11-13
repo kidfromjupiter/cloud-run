@@ -505,7 +505,7 @@ async def cancelled_bot(request: EventArcRequest):
     lg.info(request.json())
     print(request.json())
 
-    (cancelled_bots_list, _) = await (
+    (_, cancelled_bots_list) = await (
         supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
 
     id = cancelled_bots_list[0]['id']
