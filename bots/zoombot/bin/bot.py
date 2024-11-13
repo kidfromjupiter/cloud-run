@@ -79,6 +79,7 @@ class ZoomBot(BotBase):
             self.started_time = datetime.now()
 
         if not self.webinar:
+            lg.info("Not a webinar. Joining audio")
             # Wait for the element with text "Join Audio by Computer" to appear
             join_audio_button = WebDriverWait(self.driver, 60).until(
                 EC.presence_of_element_located((By.XPATH, '//*[text()="Join Audio by Computer"]'))
@@ -89,6 +90,7 @@ class ZoomBot(BotBase):
             if join_audio_button.is_enabled() and join_audio_button.is_displayed():
                 # Click the join audio button
                 join_audio_button.click()
+                lg.info("Clicked join audio button")
 
             sleep(2)
 
