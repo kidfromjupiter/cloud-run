@@ -500,46 +500,51 @@ async def kill_specific_batch(id: str, http_client: aiohttp.ClientSession = Depe
 
 @app.post("/eventarc/bot-cancelled")
 async def cancelled_bot(request: EventArcRequest):
-    lg.info("Got cancelled event")
-    print("Got cancelled event")
-    lg.info(request.json())
-    print(request.json())
+    try:
+        lg.info("Got cancelled event")
+        print("Got cancelled event")
+        lg.info(request.json())
 
-    (cancelled_bots_list, _) = await (
-        supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
-    
-    cancelled_bots_list = cancelled_bots_list[1]
+        (cancelled_bots_list, _) = await (
+            supabase_client.rpc("search_in_meta", {"target_value": request.protoPayload.resourceName}).execute())
+        
+        print(cancelled_bots_list)
+        cancelled_bots_list = cancelled_bots_list[1]
 
-    id = cancelled_bots_list[0]['id']
-    user_id = cancelled_bots_list[0]['user_id']
-    source_table = cancelled_bots_list[0]['source_table']
+        id = cancelled_bots_list[0]['id']
+        user_id = cancelled_bots_list[0]['user_id']
+        source_table = cancelled_bots_list[0]['source_table']
 
-    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
-                                                                                                       f'{user_id}').execute()
+        (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
+                                                                                                           f'{user_id}').execute()
 
-    # calculating leftover credits
-    credit = profile_data_list[0]["credits"]
-    started_time = datetime.fromisoformat(cancelled_bots_list[0]["created_at"])
-    time_now = datetime.now(timezone.utc)
-    delta = time_now - started_time
-    used_creds = delta.seconds // 60
+        # calculating leftover credits
+        credit = profile_data_list[0]["credits"]
+        started_time = datetime.fromisoformat(cancelled_bots_list[0]["created_at"])
+        time_now = datetime.now(timezone.utc)
+        delta = time_now - started_time
+        used_creds = delta.seconds // 60
 
-    credit = max(0, credit - used_creds)
+        credit = max(0, credit - used_creds)
 
-    updated_credit_data, _ = await supabase_client.table("profiles").update({"credits": credit}).eq("user_id",
-                                                                                                    f"{user_id}").execute()
-    if source_table == "bots":
-        updated_bot_data, _ = await (supabase_client.table("bots").update({"completed": True})
-                                     .eq("id", f"{id}")
-                                     .eq("user_id", f"{user_id}")
-                                     .execute())
-    elif source_table == "botgroups":
-        updated_bot_data, _ = await (supabase_client.table("botgroups").update({"alive": 0})
-                                     .eq("id", f"{id}")
-                                     .eq("user_id", f"{user_id}")
-                                     .execute())
+        updated_credit_data, _ = await supabase_client.table("profiles").update({"credits": credit}).eq("user_id",
+                                                                                                        f"{user_id}").execute()
+        if source_table == "bots":
+            updated_bot_data, _ = await (supabase_client.table("bots").update({"completed": True})
+                                         .eq("id", f"{id}")
+                                         .eq("user_id", f"{user_id}")
+                                         .execute())
+        elif source_table == "botgroups":
+            updated_bot_data, _ = await (supabase_client.table("botgroups").update({"alive": 0})
+                                         .eq("id", f"{id}")
+                                         .eq("user_id", f"{user_id}")
+                                         .execute())
 
-    return True
+        return True
+    except Exception as e:
+        print(f"Error cancelled-bot: {e}")
+        # Need to return true no matter what. Otherwise eventarc resends the same 
+        return True
 
 
 @app.post("/test/killall")
