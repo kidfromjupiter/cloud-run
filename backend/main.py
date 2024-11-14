@@ -166,57 +166,19 @@ async def bots_groups(user_id: str):
 
 @app.post("/done/{user_id}/{bot_id}")
 async def done(user_id: str, bot_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
-    (__, bot_data_list), _ = await supabase_client.table("bots").select("created_at, id").eq("id",
-                                                                                             f'{bot_id}').execute()
-    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
-                                                                                                       f'{user_id}').execute()
-    # calculating leftover credits
-    credit = profile_data_list[0]["credits"]
-    started_time = datetime.fromisoformat(bot_data_list[0]["created_at"])
-    time_now = datetime.now(timezone.utc)
-    delta = time_now - started_time
-    used_creds = delta.seconds // 60
-
-    credit = max(0, credit - used_creds)
-
-    updated_credit_data, _ = await supabase_client.table("profiles").update({"credits": credit}).eq("user_id",
-                                                                                                    f"{user_id}").execute()
-    updated_bot_data, _ = await (supabase_client.table("bots").update({"completed": True})
-                                 .eq("id", f"{bot_id}")
-                                 .eq("user_id", f"{user_id}")
-                                 .execute())
-    return {
-        'botData': updated_bot_data[1][0],
-        'profileData': updated_credit_data[1][0],
-    }
-
+    supabase_client.rpc("update_credits_and_bots",{
+        'profile_id': user_id,
+        'bot_id': bot_id,
+    })
+    return True
 
 @app.post("/done/group/{user_id}/{group_id}")
 async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
-    (__, bot_group_data_list), _ = await supabase_client.table("botgroups").select("created_at, id, alive").eq("id",
-                                                                                                               f'{group_id}').execute()
-    (__, profile_data_list), _ = await supabase_client.table("profiles").select("user_id, credits").eq("user_id",
-                                                                                                       f'{user_id}').execute()
-    # calculating leftover credits
-    credit = profile_data_list[0]["credits"]
-    started_time = datetime.fromisoformat(bot_group_data_list[0]["created_at"])
-    time_now = datetime.now(timezone.utc)
-    delta = time_now - started_time
-    used_creds = delta.seconds // 60
-
-    credit = max(0, credit - used_creds)
-
-    updated_alive_count = int(bot_group_data_list[0]["alive"]) - 1
-    updated_credit_data, _ = await supabase_client.table("profiles").update({"credits": credit}).eq("user_id",
-                                                                                                    f"{user_id}").execute()
-    updated_botgroup_data, _ = await supabase_client.table("botgroups").update(
-        {"alive": updated_alive_count}).eq("id",
-                                           f"{group_id}").execute()
-
-    return {
-        'botData': updated_botgroup_data[1][0],
-        'profileData': updated_credit_data[1][0],
-    }
+    supabase_client.rpc("update_credits_and_botgroup",{
+        'profile_id': user_id, 
+        'group_id': group_id,
+    })
+    return True
 
 
 @app.post("/test/batch/zoom",
