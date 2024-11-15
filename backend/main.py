@@ -166,18 +166,18 @@ async def bots_groups(user_id: str):
 
 @app.post("/done/{user_id}/{bot_id}")
 async def done(user_id: str, bot_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
-    supabase_client.rpc("update_credits_and_bots",{
+    await supabase_client.rpc("update_credits_and_bots",{
         'profile_id': user_id,
         'bot_id': bot_id,
-    })
+    }).execute()
     return True
 
 @app.post("/done/group/{user_id}/{group_id}")
 async def done_group(user_id: str, group_id: str, http_client: aiohttp.ClientSession = Depends(http_client)):
-    supabase_client.rpc("update_credits_and_botgroup",{
+    await supabase_client.rpc("update_credits_and_botgroup",{
         'profile_id': user_id, 
         'group_id': group_id,
-    })
+    }).execute()
     return True
 
 
